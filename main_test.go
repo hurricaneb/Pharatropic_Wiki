@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,6 +43,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 		v1.GET("/pages/:slug/attachments", h.GetAttachments)
 		v1.DELETE("/attachments/:id", h.DeleteAttachment)
 		v1.GET("/pages/:slug/revisions", h.GetRevisions)
+		v1.POST("/pages/:slug/revert/:revision_id", h.RevertRevision)
 		v1.GET("/pages/:slug/backlinks", h.GetBacklinks)
 		v1.GET("/search", h.SearchPages)
 	}
@@ -169,5 +171,66 @@ func TestBacklinksEndpoint(t *testing.T) {
 	}
 	if res.Data[0].Slug != "test" {
 		t.Fatalf("Expected backlink from 'test', got %s", res.Data[0].Slug)
+	}
+}
+
+func TestRevertRevisionEndpoint(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	// 1. Create page
+	p1 := models.CreatePageRequest{
+		Title:   "Rollback Test",
+		Content: "Original Version",
+	}
+	b1, _ := json.Marshal(p1)
+	w1 := httptest.NewRecorder()
+	r1, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(b1))
+	r1.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w1, r1)
+
+	// 2. Update page to new version
+	p2 := models.UpdatePageRequest{
+		Content: "Updated Version",
+		Comment: "Second Edit",
+	}
+	b2, _ := json.Marshal(p2)
+	w2 := httptest.NewRecorder()
+	r2, _ := http.NewRequest("PUT", "/api/v1/pages/rollback-test", bytes.NewBuffer(b2))
+	r2.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w2, r2)
+
+	// 3. Fetch revisions to get initial revision ID
+	wRev := httptest.NewRecorder()
+	rRev, _ := http.NewRequest("GET", "/api/v1/pages/rollback-test/revisions", nil)
+	router.ServeHTTP(wRev, rRev)
+
+	var revsRes struct {
+		Data []models.Revision `json:"data"`
+	}
+	json.Unmarshal(wRev.Body.Bytes(), &revsRes)
+	initialRevID := revsRes.Data[len(revsRes.Data)-1].ID
+
+	// 4. Revert back to initial revision
+	w3 := httptest.NewRecorder()
+	r3, _ := http.NewRequest("POST", fmt.Sprintf("/api/v1/pages/rollback-test/revert/%d", initialRevID), nil)
+	router.ServeHTTP(w3, r3)
+
+	if w3.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for revert, got %d: %s", w3.Code, w3.Body.String())
+	}
+
+	// 4. Verify page content is now "Original Version"
+	w4 := httptest.NewRecorder()
+	r4, _ := http.NewRequest("GET", "/api/v1/pages/rollback-test", nil)
+	router.ServeHTTP(w4, r4)
+
+	var res struct {
+		Data models.Page `json:"data"`
+	}
+	json.Unmarshal(w4.Body.Bytes(), &res)
+
+	if res.Data.Content != "Original Version" {
+		t.Fatalf("Expected content 'Original Version' after revert, got '%s'", res.Data.Content)
 	}
 }

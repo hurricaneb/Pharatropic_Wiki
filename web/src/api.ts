@@ -66,6 +66,13 @@ export const wikiAPI = {
     return res.data || [];
   },
 
+  async revertRevision(slug: string, revisionId: number): Promise<Page> {
+    const res = await fetchJSON<{ data: Page }>(`/pages/${slug}/revert/${revisionId}`, {
+      method: 'POST',
+    });
+    return res.data;
+  },
+
   async getBacklinks(slug: string): Promise<Page[]> {
     const res = await fetchJSON<{ data: Page[] }>(`/pages/${slug}/backlinks`);
     return res.data || [];
