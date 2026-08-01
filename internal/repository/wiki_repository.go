@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -261,4 +262,36 @@ func (r *WikiRepository) GetBacklinks(targetSlug string) ([]models.Page, error) 
 		Find(&backlinks).Error
 
 	return backlinks, err
+}
+
+func (r *WikiRepository) RevertPageRevision(pageSlug string, revisionID uint) (*models.Page, error) {
+	var page models.Page
+	if err := r.db.Where("slug = ?", pageSlug).First(&page).Error; err != nil {
+		return nil, errors.New("sidan hittades inte")
+	}
+
+	var targetRev models.Revision
+	if err := r.db.Where("id = ? AND page_id = ?", revisionID, page.ID).First(&targetRev).Error; err != nil {
+		return nil, errors.New("revisionen hittades inte för denna sida")
+	}
+
+	page.Content = targetRev.Content
+	page.Title = targetRev.Title
+	page.UpdatedAt = time.Now()
+
+	if err := r.db.Save(&page).Error; err != nil {
+		return nil, err
+	}
+
+	comment := fmt.Sprintf("Återställd till revision #%d", targetRev.ID)
+	newRev := models.Revision{
+		PageID:  page.ID,
+		Title:   page.Title,
+		Content: page.Content,
+		Comment: comment,
+		Author:  "Användare",
+	}
+	r.db.Create(&newRev)
+
+	return &page, nil
 }
