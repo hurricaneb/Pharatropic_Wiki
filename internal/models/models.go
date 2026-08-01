@@ -6,17 +6,30 @@ import (
 	"gorm.io/gorm"
 )
 
+// User represents a system user
+type User struct {
+	ID           uint           `gorm:"primaryKey" json:"id"`
+	Username     string         `gorm:"uniqueIndex;not null" json:"username"`
+	Email        string         `gorm:"uniqueIndex;not null" json:"email"`
+	PasswordHash string         `gorm:"not null" json:"-"`
+	Role         string         `gorm:"default:'user'" json:"role"` // 'admin' or 'user'
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	ApiKeys      []ApiKey       `json:"api_keys,omitempty" gorm:"foreignKey:UserID"`
+}
+
 // Page represents a main wiki page
 type Page struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	Slug      string         `gorm:"uniqueIndex;not null" json:"slug"`
-	Title     string         `gorm:"not null" json:"title"`
-	Summary   string         `json:"summary"`
-	Content   string         `gorm:"type:text;not null" json:"content"`
-	Views     int64          `gorm:"default:0" json:"views"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	Slug        string         `gorm:"uniqueIndex;not null" json:"slug"`
+	Title       string         `gorm:"not null" json:"title"`
+	Summary     string         `json:"summary"`
+	Content     string         `gorm:"type:text;not null" json:"content"`
+	Views       int64          `gorm:"default:0" json:"views"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	Revisions   []Revision     `json:"revisions,omitempty" gorm:"foreignKey:PageID"`
 	Attachments []Attachment   `json:"attachments,omitempty" gorm:"foreignKey:PageID"`
 	Tags        []Tag          `json:"tags,omitempty" gorm:"many2many:page_tags;"`
@@ -52,13 +65,17 @@ type Tag struct {
 	Slug string `gorm:"uniqueIndex;not null" json:"slug"`
 }
 
-// ApiKey represents an API key for REST API access
+// ApiKey represents an API key owned by a user
 type ApiKey struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	Key         string    `gorm:"uniqueIndex;not null" json:"key"`
-	Description string    `json:"description"`
-	Active      bool      `gorm:"default:true" json:"active"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID         uint       `gorm:"primaryKey" json:"id"`
+	UserID     uint       `gorm:"index;not null" json:"user_id"`
+	Name       string     `gorm:"not null" json:"name"`
+	Key        string     `gorm:"uniqueIndex;not null" json:"key"`
+	Prefix     string     `json:"prefix"`
+	Active     bool       `gorm:"default:true" json:"active"`
+	ExpiresAt  *time.Time `json:"expires_at"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+	CreatedAt  time.Time  `json:"created_at"`
 }
 
 // CreatePageRequest DTO for API page creation
@@ -77,4 +94,22 @@ type UpdatePageRequest struct {
 	Summary string   `json:"summary"`
 	Comment string   `json:"comment"`
 	Tags    []string `json:"tags"`
+}
+
+// Auth DTOs
+type LoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type CreateUserRequest struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Role     string `json:"role"`
+}
+
+type CreateApiKeyRequest struct {
+	Name    string `json:"name" binding:"required"`
+	Expires string `json:"expires"` // 'never', '7d', '30d', '90d', '1y'
 }

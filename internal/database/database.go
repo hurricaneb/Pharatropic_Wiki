@@ -6,6 +6,7 @@ import (
 	"wiki/internal/models"
 
 	"github.com/gosimple/slug"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -21,6 +22,7 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 
 	// Auto migrate tables
 	err = db.AutoMigrate(
+		&models.User{},
 		&models.Page{},
 		&models.Revision{},
 		&models.Attachment{},
@@ -29,6 +31,22 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	// Seed default admin account if no users exist
+	var userCount int64
+	db.Model(&models.User{}).Count(&userCount)
+	if userCount == 0 {
+		hash, _ := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+		adminUser := models.User{
+			Username:     "admin",
+			Email:        "admin@pharatropic.local",
+			PasswordHash: string(hash),
+			Role:         "admin",
+		}
+		if err := db.Create(&adminUser).Error; err == nil {
+			log.Println("Seeded default admin user (username: admin, password: admin)")
+		}
 	}
 
 	// Seed initial welcome page if no pages exist
@@ -68,7 +86,7 @@ func seedDatabase(db *gorm.DB) {
 			Title:   page.Title,
 			Content: page.Content,
 			Comment: "Inledande skapande av välkomstsida",
-			Author:  "System",
+			Author:  "admin",
 		}
 		db.Create(&revision)
 	}
