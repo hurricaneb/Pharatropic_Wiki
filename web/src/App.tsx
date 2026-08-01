@@ -125,6 +125,16 @@ export function App() {
     }
   };
 
+  // Handle Revert Revision
+  const handleRevertRevision = async (revisionId: number) => {
+    if (!activeSlug) return;
+    const revertedPage = await wikiAPI.revertRevision(activeSlug, revisionId);
+    await loadSidebarData();
+    setActiveSlug(revertedPage.slug);
+    await loadPageDetails(revertedPage.slug);
+    setViewMode('view');
+  };
+
   return (
     <div className="app-container">
       <Navbar
@@ -190,6 +200,7 @@ export function App() {
               page={activePage}
               revisions={revisions}
               onBack={() => setViewMode('view')}
+              onRevertRevision={handleRevertRevision}
             />
           )}
 

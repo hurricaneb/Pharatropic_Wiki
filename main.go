@@ -60,6 +60,7 @@ func main() {
 
 		// Revision history & Backlinks
 		v1.GET("/pages/:slug/revisions", wikiHandler.GetRevisions)
+		v1.POST("/pages/:slug/revert/:revision_id", wikiHandler.RevertRevision)
 		v1.GET("/pages/:slug/backlinks", wikiHandler.GetBacklinks)
 
 		// Search & Tags

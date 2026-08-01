@@ -260,3 +260,26 @@ func (h *WikiHandler) GetBacklinks(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": backlinks, "total": len(backlinks)})
 }
+
+// RevertRevision POST /api/v1/pages/:slug/revert/:revision_id
+func (h *WikiHandler) RevertRevision(c *gin.Context) {
+	slug := c.Param("slug")
+	revIDStr := c.Param("revision_id")
+
+	revID, err := strconv.ParseUint(revIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Ogiltigt revisions-ID"})
+		return
+	}
+
+	page, err := h.repo.RevertPageRevision(slug, uint(revID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("Sidan har återställts till revision #%d!", revID),
+		"data":    page,
+	})
+}

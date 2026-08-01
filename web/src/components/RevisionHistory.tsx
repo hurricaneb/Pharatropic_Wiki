@@ -3,22 +3,44 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, Revision } from '../types';
-import { ArrowLeft, Clock, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Clock, MessageSquare, RotateCcw } from 'lucide-react';
 
 interface RevisionHistoryProps {
   page: Page;
   revisions: Revision[];
   onBack: () => void;
+  onRevertRevision?: (revisionId: number) => Promise<void>;
 }
 
 export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
   page,
   revisions,
   onBack,
+  onRevertRevision,
 }) => {
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(
     revisions.length > 0 ? revisions[0] : null
   );
+  const [isReverting, setIsReverting] = useState(false);
+
+  const handleRevert = async () => {
+    if (!selectedRevision || !onRevertRevision) return;
+    const selectedIdx = revisions.findIndex((r) => r.id === selectedRevision.id);
+    const seqNo = selectedIdx !== -1 ? revisions.length - selectedIdx : selectedRevision.id;
+
+    if (!window.confirm(`Är du säker på att du vill återställa wikisidan till revision #${seqNo}?`)) {
+      return;
+    }
+
+    setIsReverting(true);
+    try {
+      await onRevertRevision(selectedRevision.id);
+    } catch (err: any) {
+      alert(err.message || 'Misslyckades att återställa revisionen.');
+    } finally {
+      setIsReverting(false);
+    }
+  };
 
   return (
     <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -98,14 +120,29 @@ export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
         <div>
           {selectedRevision ? (
             <div className="glass-panel" style={{ padding: '24px', background: 'rgba(0,0,0,0.3)' }}>
-              <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>
-                  {selectedRevision.title}
-                </h3>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '16px' }}>
-                  <span>Författare: {selectedRevision.author}</span>
-                  <span>Kommentar: "{selectedRevision.comment}"</span>
+              <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>
+                    {selectedRevision.title}
+                  </h3>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '16px' }}>
+                    <span>Författare: {selectedRevision.author}</span>
+                    <span>Kommentar: "{selectedRevision.comment}"</span>
+                  </div>
                 </div>
+
+                {onRevertRevision && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleRevert}
+                    disabled={isReverting}
+                    style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                    title="Skapa ny revision baserad på denna tidigare version"
+                  >
+                    <RotateCcw size={15} />
+                    <span>{isReverting ? 'Återställer...' : 'Återställ till denna version'}</span>
+                  </button>
+                )}
               </div>
 
               <div className="markdown-body">
