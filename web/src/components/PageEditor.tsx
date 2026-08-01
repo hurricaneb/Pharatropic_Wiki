@@ -136,7 +136,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         {/* Title */}
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
-            Sidsida-Titel
+            Sidtitel
           </label>
           <input
             type="text"
@@ -189,7 +189,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
                 type="button"
                 className="btn btn-secondary"
                 style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-                onClick={() => setContent((prev) => prev + '\n[[Sidsida-Titel]]')}
+                onClick={() => setContent((prev) => prev + '\n[[Sidtitel]]')}
                 title="Infoga intern wikilänk [[Titel]]"
               >
                 <span>+ [[Wikilänk]]</span>
@@ -227,7 +227,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
             {(activeTab === 'editor' || activeTab === 'split') && (
               <textarea
                 className="textarea-field"
-                placeholder="# Skriv din markdown här...\n\nTips: Du kan skapa interna wiki-länkar med [[Sidsida-Titel]]!"
+                placeholder="# Skriv din markdown här...\n\nTips: Du kan skapa interna wiki-länkar med [[Sidtitel]]!"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 required
