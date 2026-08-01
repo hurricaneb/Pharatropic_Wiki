@@ -1,5 +1,6 @@
 import React from 'react';
-import { BookOpen, Plus, Search, Terminal } from 'lucide-react';
+import { BookOpen, Plus, Search, Terminal, Key, LogIn, LogOut, Users } from 'lucide-react';
+import type { User } from '../types';
 
 interface NavbarProps {
   searchQuery: string;
@@ -8,6 +9,11 @@ interface NavbarProps {
   onOpenApiModal: () => void;
   onHomeClick: () => void;
   healthOk: boolean;
+  currentUser: User | null;
+  onOpenLogin: () => void;
+  onOpenApiKeys: () => void;
+  onOpenAdminUsers: () => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -17,6 +23,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenApiModal,
   onHomeClick,
   healthOk,
+  currentUser,
+  onOpenLogin,
+  onOpenApiKeys,
+  onOpenAdminUsers,
+  onLogout,
 }) => {
   return (
     <header className="glass-panel" style={{ borderRadius: 0, borderTop: 0, borderLeft: 0, borderRight: 0, padding: '14px 28px' }}>
@@ -54,28 +65,81 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Search Bar */}
-        <div style={{ flex: 1, maxWidth: '480px', position: 'relative' }}>
+        <div style={{ flex: 1, maxWidth: '440px', position: 'relative' }}>
           <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
             className="input-field"
-            placeholder="Sök i alla wikisidor och titlar..."
+            placeholder="Sök i alla wikisidor..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             style={{ paddingLeft: '42px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
           />
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={onOpenApiModal} title="Visa REST API documentation">
-            <Terminal size={16} />
+        {/* Action Buttons & User Menu */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button className="btn btn-secondary" onClick={onOpenApiModal} title="Visa REST API dokumentation" style={{ padding: '6px 12px', fontSize: '0.82rem' }}>
+            <Terminal size={15} />
             <span>REST API</span>
           </button>
-          <button className="btn btn-primary" onClick={onNewPage}>
-            <Plus size={18} />
+          
+          <button className="btn btn-primary" onClick={onNewPage} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+            <Plus size={16} />
             <span>Ny Sida</span>
           </button>
+
+          {/* User Auth Section */}
+          {currentUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px', borderLeft: '1px solid var(--border-color)', paddingLeft: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>
+                  {currentUser.username[0].toUpperCase()}
+                </div>
+                <span>{currentUser.username}</span>
+              </div>
+
+              <button
+                className="btn btn-secondary"
+                onClick={onOpenApiKeys}
+                title="Mina API-nycklar"
+                style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+              >
+                <Key size={14} color="var(--accent)" />
+                <span>Mina API-nycklar</span>
+              </button>
+
+              {currentUser.role === 'admin' && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={onOpenAdminUsers}
+                  title="Användarhantering (Admin)"
+                  style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                >
+                  <Users size={14} color="var(--primary)" />
+                  <span>Användare</span>
+                </button>
+              )}
+
+              <button
+                className="btn btn-danger"
+                onClick={onLogout}
+                title="Logga ut"
+                style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-secondary"
+              onClick={onOpenLogin}
+              style={{ marginLeft: '6px', padding: '6px 14px', fontSize: '0.85rem' }}
+            >
+              <LogIn size={15} />
+              <span>Logga in</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"wiki/internal/middleware"
 	"wiki/internal/models"
 	"wiki/internal/repository"
 
@@ -67,7 +68,8 @@ func (h *WikiHandler) CreatePage(c *gin.Context) {
 		return
 	}
 
-	page, err := h.repo.CreatePage(&req)
+	author := c.GetString("username")
+	page, err := h.repo.CreatePage(&req, author)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -89,7 +91,8 @@ func (h *WikiHandler) UpdatePage(c *gin.Context) {
 		return
 	}
 
-	page, err := h.repo.UpdatePage(slug, &req)
+	author := c.GetString("username")
+	page, err := h.repo.UpdatePage(slug, &req, author)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -272,7 +275,8 @@ func (h *WikiHandler) RevertRevision(c *gin.Context) {
 		return
 	}
 
-	page, err := h.repo.RevertPageRevision(slug, uint(revID))
+	author := c.GetString("username")
+	page, err := h.repo.RevertPageRevision(slug, uint(revID), author)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -282,4 +286,154 @@ func (h *WikiHandler) RevertRevision(c *gin.Context) {
 		"message": fmt.Sprintf("Sidan har återställts till revision #%d!", revID),
 		"data":    page,
 	})
+}
+
+// Auth Handlers
+
+// AuthLogin POST /api/v1/auth/login
+func (h *WikiHandler) AuthLogin(c *gin.Context) {
+	var req models.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Användarnamn och lösenord krävs"})
+		return
+	}
+
+	user, err := h.repo.GetUserByUsernameOrEmail(req.Username)
+	if err != nil || !h.repo.ValidateUserPassword(user, req.Password) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Felaktigt användarnamn eller lösenord"})
+		return
+	}
+
+	token, err := middleware.GenerateToken(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kunde inte skapa inloggningstoken"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Inloggningen lyckades!",
+		"token":   token,
+		"user":    user,
+	})
+}
+
+// AuthMe GET /api/v1/auth/me
+func (h *WikiHandler) AuthMe(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		username := c.GetString("username")
+		if username != "" {
+			c.JSON(http.StatusOK, gin.H{"user": gin.H{"username": username, "role": "admin"}})
+			return
+		}
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Ej inloggad"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"user": userVal})
+}
+
+// Admin Handlers
+
+// AdminCreateUser POST /api/v1/admin/users
+func (h *WikiHandler) AdminCreateUser(c *gin.Context) {
+	var req models.CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Användarnamn, e-post och lösenord krävs"})
+		return
+	}
+
+	user, err := h.repo.CreateUser(req.Username, req.Email, req.Password, req.Role)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Användarkontot har skapats!",
+		"data":    user,
+	})
+}
+
+// AdminListUsers GET /api/v1/admin/users
+func (h *WikiHandler) AdminListUsers(c *gin.Context) {
+	users, err := h.repo.ListUsers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": users})
+}
+
+// User API Key Handlers
+
+// UserListApiKeys GET /api/v1/user/keys
+func (h *WikiHandler) UserListApiKeys(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Du måste vara inloggad som användare"})
+		return
+	}
+
+	user := userVal.(*models.User)
+	keys, err := h.repo.ListUserApiKeys(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": keys})
+}
+
+// UserCreateApiKey POST /api/v1/user/keys
+func (h *WikiHandler) UserCreateApiKey(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Du måste vara inloggad som användare"})
+		return
+	}
+
+	var req models.CreateApiKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nyckelnamn krävs"})
+		return
+	}
+
+	user := userVal.(*models.User)
+	apiKey, rawSecret, err := h.repo.CreateUserApiKey(user.ID, req.Name, req.Expires)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "API-nyckeln har skapats!",
+		"data":    apiKey,
+		"key":     rawSecret,
+	})
+}
+
+// UserRevokeApiKey DELETE /api/v1/user/keys/:id
+func (h *WikiHandler) UserRevokeApiKey(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Du måste vara inloggad som användare"})
+		return
+	}
+
+	keyIDStr := c.Param("id")
+	keyID, err := strconv.ParseUint(keyIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Ogiltigt nyckel-ID"})
+		return
+	}
+
+	user := userVal.(*models.User)
+	if err := h.repo.RevokeUserApiKey(user.ID, uint(keyID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "API-nyckeln har återkallats"})
 }

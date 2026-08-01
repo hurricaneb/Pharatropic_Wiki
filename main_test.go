@@ -11,6 +11,7 @@ import (
 
 	"wiki/internal/database"
 	"wiki/internal/handlers"
+	"wiki/internal/middleware"
 	"wiki/internal/models"
 	"wiki/internal/repository"
 
@@ -32,20 +33,40 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 
 	r := gin.Default()
 	v1 := r.Group("/api/v1")
+	v1.Use(middleware.AuthMiddleware(repo, "master-secret"))
 	{
 		v1.GET("/health", h.GetHealth)
+		v1.POST("/auth/login", h.AuthLogin)
+		v1.GET("/auth/me", h.AuthMe)
+
 		v1.GET("/pages", h.ListPages)
 		v1.GET("/pages/:slug", h.GetPage)
-		v1.POST("/pages", h.CreatePage)
-		v1.PUT("/pages/:slug", h.UpdatePage)
-		v1.DELETE("/pages/:slug", h.DeletePage)
-		v1.POST("/pages/:slug/attachments", h.UploadAttachment)
-		v1.GET("/pages/:slug/attachments", h.GetAttachments)
-		v1.DELETE("/attachments/:id", h.DeleteAttachment)
 		v1.GET("/pages/:slug/revisions", h.GetRevisions)
-		v1.POST("/pages/:slug/revert/:revision_id", h.RevertRevision)
 		v1.GET("/pages/:slug/backlinks", h.GetBacklinks)
+		v1.GET("/pages/:slug/attachments", h.GetAttachments)
 		v1.GET("/search", h.SearchPages)
+
+		authed := v1.Group("")
+		authed.Use(middleware.RequireAuth())
+		{
+			authed.POST("/pages", h.CreatePage)
+			authed.PUT("/pages/:slug", h.UpdatePage)
+			authed.DELETE("/pages/:slug", h.DeletePage)
+			authed.POST("/pages/:slug/attachments", h.UploadAttachment)
+			authed.DELETE("/attachments/:id", h.DeleteAttachment)
+			authed.POST("/pages/:slug/revert/:revision_id", h.RevertRevision)
+
+			authed.GET("/user/keys", h.UserListApiKeys)
+			authed.POST("/user/keys", h.UserCreateApiKey)
+			authed.DELETE("/user/keys/:id", h.UserRevokeApiKey)
+		}
+
+		admin := v1.Group("/admin")
+		admin.Use(middleware.RequireAdmin())
+		{
+			admin.POST("/users", h.AdminCreateUser)
+			admin.GET("/users", h.AdminListUsers)
+		}
 	}
 
 	cleanup := func() {
@@ -84,6 +105,7 @@ func TestCreateAndFetchPage(t *testing.T) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusCreated {
@@ -110,6 +132,7 @@ func TestCreateAndFetchPage(t *testing.T) {
 	w3 := httptest.NewRecorder()
 	req3, _ := http.NewRequest("PUT", "/api/v1/pages/test-sida", bytes.NewBuffer(updateBytes))
 	req3.Header.Set("Content-Type", "application/json")
+	req3.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(w3, req3)
 
 	if w3.Code != http.StatusOK {
@@ -139,6 +162,7 @@ func TestBacklinksEndpoint(t *testing.T) {
 	w1 := httptest.NewRecorder()
 	r1, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(b1))
 	r1.Header.Set("Content-Type", "application/json")
+	r1.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(w1, r1)
 
 	// 2. Create linking page "Test" that contains [[Välkommen till Wikin]]
@@ -150,6 +174,7 @@ func TestBacklinksEndpoint(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r2, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(b2))
 	r2.Header.Set("Content-Type", "application/json")
+	r2.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(w2, r2)
 
 	// 3. Fetch backlinks for "valkommen-till-wikin"
@@ -187,6 +212,7 @@ func TestRevertRevisionEndpoint(t *testing.T) {
 	w1 := httptest.NewRecorder()
 	r1, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(b1))
 	r1.Header.Set("Content-Type", "application/json")
+	r1.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(w1, r1)
 
 	// 2. Update page to new version
@@ -198,6 +224,7 @@ func TestRevertRevisionEndpoint(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r2, _ := http.NewRequest("PUT", "/api/v1/pages/rollback-test", bytes.NewBuffer(b2))
 	r2.Header.Set("Content-Type", "application/json")
+	r2.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(w2, r2)
 
 	// 3. Fetch revisions to get initial revision ID
@@ -214,6 +241,7 @@ func TestRevertRevisionEndpoint(t *testing.T) {
 	// 4. Revert back to initial revision
 	w3 := httptest.NewRecorder()
 	r3, _ := http.NewRequest("POST", fmt.Sprintf("/api/v1/pages/rollback-test/revert/%d", initialRevID), nil)
+	r3.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(w3, r3)
 
 	if w3.Code != http.StatusOK {
@@ -232,5 +260,144 @@ func TestRevertRevisionEndpoint(t *testing.T) {
 
 	if res.Data.Content != "Original Version" {
 		t.Fatalf("Expected content 'Original Version' after revert, got '%s'", res.Data.Content)
+	}
+}
+
+func TestUserAuthAndApiKeys(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	// 1. Login as default seeded admin
+	loginPayload := models.LoginRequest{
+		Username: "admin",
+		Password: "admin",
+	}
+	bLogin, _ := json.Marshal(loginPayload)
+	wLogin := httptest.NewRecorder()
+	rLogin, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bLogin))
+	rLogin.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wLogin, rLogin)
+
+	if wLogin.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for admin login, got %d: %s", wLogin.Code, wLogin.Body.String())
+	}
+
+	var loginRes struct {
+		Token string      `json:"token"`
+		User  models.User `json:"user"`
+	}
+	json.Unmarshal(wLogin.Body.Bytes(), &loginRes)
+	token := loginRes.Token
+
+	// 2. Admin creates a new user "henrik"
+	newUserPayload := models.CreateUserRequest{
+		Username: "henrik",
+		Email:    "henrik@pharatropic.local",
+		Password: "secretpassword",
+		Role:     "user",
+	}
+	bUser, _ := json.Marshal(newUserPayload)
+	wUser := httptest.NewRecorder()
+	rUser, _ := http.NewRequest("POST", "/api/v1/admin/users", bytes.NewBuffer(bUser))
+	rUser.Header.Set("Content-Type", "application/json")
+	rUser.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(wUser, rUser)
+
+	if wUser.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for user creation, got %d: %s", wUser.Code, wUser.Body.String())
+	}
+
+	// 3. Login as new user "henrik"
+	henrikLogin := models.LoginRequest{
+		Username: "henrik",
+		Password: "secretpassword",
+	}
+	bHenrik, _ := json.Marshal(henrikLogin)
+	wHenrik := httptest.NewRecorder()
+	rHenrik, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bHenrik))
+	rHenrik.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wHenrik, rHenrik)
+
+	if wHenrik.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for henrik login, got %d", wHenrik.Code)
+	}
+
+	var henrikRes struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal(wHenrik.Body.Bytes(), &henrikRes)
+	henrikToken := henrikRes.Token
+
+	// 4. Henrik creates an API key with 30d expiry
+	keyPayload := models.CreateApiKeyRequest{
+		Name:    "CLI Deployment Key",
+		Expires: "30d",
+	}
+	bKey, _ := json.Marshal(keyPayload)
+	wKey := httptest.NewRecorder()
+	rKey, _ := http.NewRequest("POST", "/api/v1/user/keys", bytes.NewBuffer(bKey))
+	rKey.Header.Set("Content-Type", "application/json")
+	rKey.Header.Set("Authorization", "Bearer "+henrikToken)
+	router.ServeHTTP(wKey, rKey)
+
+	if wKey.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for API key, got %d: %s", wKey.Code, wKey.Body.String())
+	}
+
+	var keyRes struct {
+		Key  string        `json:"key"`
+		Data models.ApiKey `json:"data"`
+	}
+	json.Unmarshal(wKey.Body.Bytes(), &keyRes)
+	apiKeySecret := keyRes.Key
+
+	// 5. Use API Key to create a new wiki page as author "henrik"
+	pagePayload := models.CreatePageRequest{
+		Title:   "Henrik API Page",
+		Content: "# Created via User API Key",
+	}
+	bPage, _ := json.Marshal(pagePayload)
+	wPage := httptest.NewRecorder()
+	rPage, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(bPage))
+	rPage.Header.Set("Content-Type", "application/json")
+	rPage.Header.Set("X-API-Key", apiKeySecret)
+	router.ServeHTTP(wPage, rPage)
+
+	if wPage.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for page creation via API Key, got %d: %s", wPage.Code, wPage.Body.String())
+	}
+
+	// 6. Verify page revision author is "henrik"
+	wGet := httptest.NewRecorder()
+	rGet, _ := http.NewRequest("GET", "/api/v1/pages/henrik-api-page", nil)
+	router.ServeHTTP(wGet, rGet)
+
+	var getRes struct {
+		Data models.Page `json:"data"`
+	}
+	json.Unmarshal(wGet.Body.Bytes(), &getRes)
+	if len(getRes.Data.Revisions) > 0 && getRes.Data.Revisions[0].Author != "henrik" {
+		t.Fatalf("Expected revision author to be 'henrik', got '%s'", getRes.Data.Revisions[0].Author)
+	}
+
+	// 7. Revoke API key
+	wRevoke := httptest.NewRecorder()
+	rRevoke, _ := http.NewRequest("DELETE", fmt.Sprintf("/api/v1/user/keys/%d", keyRes.Data.ID), nil)
+	rRevoke.Header.Set("Authorization", "Bearer "+henrikToken)
+	router.ServeHTTP(wRevoke, rRevoke)
+
+	if wRevoke.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for key revocation, got %d", wRevoke.Code)
+	}
+
+	// 8. Subsequent call with revoked API key must fail
+	wFail := httptest.NewRecorder()
+	rFail, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(bPage))
+	rFail.Header.Set("Content-Type", "application/json")
+	rFail.Header.Set("X-API-Key", apiKeySecret)
+	router.ServeHTTP(wFail, rFail)
+
+	if wFail.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 Unauthorized for revoked API key, got %d", wFail.Code)
 	}
 }

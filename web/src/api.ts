@@ -1,12 +1,20 @@
-import type { Page, CreatePageInput, UpdatePageInput, Revision, Tag, Attachment } from './types';
+import type { Page, CreatePageInput, UpdatePageInput, Revision, Tag, Attachment, User, UserApiKey } from './types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+
+function getAuthHeader(): Record<string, string> {
+  const token = localStorage.getItem('ptc_auth_token');
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return { 'X-API-Key': 'wiki-secret-api-key' };
+}
 
 async function fetchJSON<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-API-Key': 'wiki-secret-api-key',
+      ...getAuthHeader(),
       ...options?.headers,
     },
     ...options,
@@ -25,6 +33,69 @@ export const wikiAPI = {
     return fetchJSON<{ status: string; service: string }>('/health');
   },
 
+  // Auth API
+  async login(username: string, password: string): Promise<{ token: string; user: User }> {
+    const res = await fetchJSON<{ token: string; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    if (res.token) {
+      localStorage.setItem('ptc_auth_token', res.token);
+    }
+    return res;
+  },
+
+  async logout(): Promise<void> {
+    localStorage.removeItem('ptc_auth_token');
+  },
+
+  async getMe(): Promise<User | null> {
+    const token = localStorage.getItem('ptc_auth_token');
+    if (!token) return null;
+    try {
+      const res = await fetchJSON<{ user: User }>('/auth/me');
+      return res.user || null;
+    } catch {
+      localStorage.removeItem('ptc_auth_token');
+      return null;
+    }
+  },
+
+  // Admin API
+  async adminCreateUser(input: { username: string; email: string; password: string; role?: string }): Promise<User> {
+    const res = await fetchJSON<{ data: User }>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return res.data;
+  },
+
+  async adminListUsers(): Promise<User[]> {
+    const res = await fetchJSON<{ data: User[] }>('/admin/users');
+    return res.data || [];
+  },
+
+  // User API Keys
+  async listUserApiKeys(): Promise<UserApiKey[]> {
+    const res = await fetchJSON<{ data: UserApiKey[] }>('/user/keys');
+    return res.data || [];
+  },
+
+  async createUserApiKey(name: string, expires: string): Promise<{ data: UserApiKey; key: string }> {
+    const res = await fetchJSON<{ data: UserApiKey; key: string }>('/user/keys', {
+      method: 'POST',
+      body: JSON.stringify({ name, expires }),
+    });
+    return res;
+  },
+
+  async revokeUserApiKey(id: number): Promise<void> {
+    await fetchJSON(`/user/keys/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Page API
   async listPages(search?: string, tag?: string): Promise<Page[]> {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
@@ -95,7 +166,7 @@ export const wikiAPI = {
     const response = await fetch(`${API_BASE}/pages/${slug}/attachments`, {
       method: 'POST',
       headers: {
-        'X-API-Key': 'wiki-secret-api-key',
+        ...getAuthHeader(),
       },
       body: formData,
     });
