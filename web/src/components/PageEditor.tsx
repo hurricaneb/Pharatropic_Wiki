@@ -5,19 +5,22 @@ import rehypeHighlight from 'rehype-highlight';
 import type { Page, CreatePageInput, UpdatePageInput } from '../types';
 import { Save, X, Eye, Edit3, MessageSquare, Paperclip } from 'lucide-react';
 import { wikiAPI } from '../api';
+import { transformWikiLinks } from '../utils/wikiLink';
 
 interface PageEditorProps {
   initialPage?: Page | null;
+  initialTitle?: string;
   onSave: (data: CreatePageInput | UpdatePageInput) => Promise<void>;
   onCancel: () => void;
 }
 
 export const PageEditor: React.FC<PageEditorProps> = ({
   initialPage,
+  initialTitle,
   onSave,
   onCancel,
 }) => {
-  const [title, setTitle] = useState(initialPage?.title || '');
+  const [title, setTitle] = useState(initialPage?.title || initialTitle || '');
   const [summary, setSummary] = useState(initialPage?.summary || '');
   const [content, setContent] = useState(initialPage?.content || '');
   const [tagsInput, setTagsInput] = useState(
@@ -133,7 +136,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         {/* Title */}
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
-            Sidsida-Titel
+            Sidtitel
           </label>
           <input
             type="text"
@@ -181,26 +184,38 @@ export const PageEditor: React.FC<PageEditorProps> = ({
               Innehåll (Markdown-format)
             </label>
 
-            {initialPage && (
-              <div>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  <Paperclip size={14} />
-                  <span>{isUploading ? 'Laddar upp...' : 'Bifoga fil / bild'}</span>
-                </button>
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                onClick={() => setContent((prev) => prev + '\n[[Sidtitel]]')}
+                title="Infoga intern wikilänk [[Titel]]"
+              >
+                <span>+ [[Wikilänk]]</span>
+              </button>
+
+              {initialPage && (
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    <Paperclip size={14} />
+                    <span>{isUploading ? 'Laddar upp...' : 'Bifoga fil / bild'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div style={{ 
@@ -212,7 +227,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
             {(activeTab === 'editor' || activeTab === 'split') && (
               <textarea
                 className="textarea-field"
-                placeholder="# Skriv din markdown här..."
+                placeholder="# Skriv din markdown här...\n\nTips: Du kan skapa interna wiki-länkar med [[Sidtitel]]!"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 required
@@ -230,7 +245,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
                     return finalUrl.replace(/ /g, '%20');
                   }}
                 >
-                  {content || '*Ingen förhandsgranskning än...*'}
+                  {transformWikiLinks(content || '*Ingen förhandsgranskning än...*')}
                 </ReactMarkdown>
               </div>
             )}
