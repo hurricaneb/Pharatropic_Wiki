@@ -74,7 +74,7 @@ func (r *WikiRepository) CreatePage(req *models.CreatePageRequest) (*models.Page
 
 func (r *WikiRepository) GetPageBySlug(slug string) (*models.Page, error) {
 	var page models.Page
-	err := r.db.Preload("Tags").Preload("Revisions", func(db *gorm.DB) *gorm.DB {
+	err := r.db.Preload("Tags").Preload("Attachments").Preload("Revisions", func(db *gorm.DB) *gorm.DB {
 		return db.Order("revisions.created_at DESC")
 	}).Where("slug = ?", slug).First(&page).Error
 	if err != nil {
@@ -186,4 +186,49 @@ func (r *WikiRepository) ListTags() ([]models.Tag, error) {
 	var tags []models.Tag
 	err := r.db.Find(&tags).Error
 	return tags, err
+}
+
+func (r *WikiRepository) SaveAttachment(pageSlug string, filename string, originalName string, filePath string, mimeType string, fileSize int64) (*models.Attachment, error) {
+	var page models.Page
+	if err := r.db.Where("slug = ?", pageSlug).First(&page).Error; err != nil {
+		return nil, errors.New("sidan hittades inte")
+	}
+
+	attachment := models.Attachment{
+		PageID:   page.ID,
+		Filename: filename,
+		Original: originalName,
+		FilePath: filePath,
+		MimeType: mimeType,
+		FileSize: fileSize,
+	}
+
+	if err := r.db.Create(&attachment).Error; err != nil {
+		return nil, err
+	}
+
+	return &attachment, nil
+}
+
+func (r *WikiRepository) GetAttachments(pageSlug string) ([]models.Attachment, error) {
+	var page models.Page
+	if err := r.db.Where("slug = ?", pageSlug).First(&page).Error; err != nil {
+		return nil, errors.New("sidan hittades inte")
+	}
+
+	var attachments []models.Attachment
+	err := r.db.Where("page_id = ?", page.ID).Order("created_at DESC").Find(&attachments).Error
+	return attachments, err
+}
+
+func (r *WikiRepository) GetAttachmentByID(id uint) (*models.Attachment, error) {
+	var att models.Attachment
+	if err := r.db.First(&att, id).Error; err != nil {
+		return nil, errors.New("bilagan hittades inte")
+	}
+	return &att, nil
+}
+
+func (r *WikiRepository) DeleteAttachment(id uint) error {
+	return r.db.Delete(&models.Attachment{}, id).Error
 }

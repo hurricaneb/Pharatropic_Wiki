@@ -1,7 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"wiki/internal/models"
 	"wiki/internal/repository"
@@ -146,4 +152,96 @@ func (h *WikiHandler) ListTags(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": tags})
+}
+
+// UploadAttachment POST /api/v1/pages/:slug/attachments
+func (h *WikiHandler) UploadAttachment(c *gin.Context) {
+	slug := c.Param("slug")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Ingen fil skickades i formuläret ('file')"})
+		return
+	}
+
+	// Ensure upload directory exists
+	uploadDir := "./uploads"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kunde inte skapa uppladdningsmapp"})
+		return
+	}
+
+	// Generate safe unique filename
+	safeName := filepath.Base(file.Filename)
+	uniqueFilename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), safeName)
+	dst := filepath.Join(uploadDir, uniqueFilename)
+
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Misslyckades att spara filen"})
+		return
+	}
+
+	filePath := fmt.Sprintf("/uploads/%s", uniqueFilename)
+	mimeType := file.Header.Get("Content-Type")
+
+	attachment, err := h.repo.SaveAttachment(slug, uniqueFilename, file.Filename, filePath, mimeType, file.Size)
+	if err != nil {
+		os.Remove(dst) // rollback file save on DB error
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Generate Markdown snippet for easy copying
+	var markdownSnippet string
+	if strings.HasPrefix(mimeType, "image/") {
+		markdownSnippet = fmt.Sprintf("![%s](%s)", file.Filename, filePath)
+	} else {
+		markdownSnippet = fmt.Sprintf("[%s](%s)", file.Filename, filePath)
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":  "Filen har laddats upp!",
+		"data":     attachment,
+		"markdown": markdownSnippet,
+	})
+}
+
+// GetAttachments GET /api/v1/pages/:slug/attachments
+func (h *WikiHandler) GetAttachments(c *gin.Context) {
+	slug := c.Param("slug")
+
+	attachments, err := h.repo.GetAttachments(slug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": attachments, "total": len(attachments)})
+}
+
+// DeleteAttachment DELETE /api/v1/attachments/:id
+func (h *WikiHandler) DeleteAttachment(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Ogiltigt ID"})
+		return
+	}
+
+	att, err := h.repo.GetAttachmentByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Remove file from disk
+	filePath := filepath.Join("./uploads", att.Filename)
+	os.Remove(filePath)
+
+	if err := h.repo.DeleteAttachment(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Bilagan har raderats"})
 }

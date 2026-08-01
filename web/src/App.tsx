@@ -194,6 +194,7 @@ export function App() {
               onViewHistory={handleViewHistory}
               onDelete={handleDeletePage}
               onOpenApiModal={() => setShowApiModal(true)}
+              onRefreshPage={() => activeSlug && loadPageDetails(activeSlug)}
             />
           )}
 

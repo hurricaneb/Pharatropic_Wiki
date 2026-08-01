@@ -1,4 +1,4 @@
-import type { Page, CreatePageInput, UpdatePageInput, Revision, Tag } from './types';
+import type { Page, CreatePageInput, UpdatePageInput, Revision, Tag, Attachment } from './types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
@@ -74,5 +74,36 @@ export const wikiAPI = {
   async listTags(): Promise<Tag[]> {
     const res = await fetchJSON<{ data: Tag[] }>('/tags');
     return res.data || [];
+  },
+
+  async uploadAttachment(slug: string, file: File): Promise<{ data: Attachment; markdown: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/pages/${slug}/attachments`, {
+      method: 'POST',
+      headers: {
+        'X-API-Key': 'wiki-secret-api-key',
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || 'Misslyckades att ladda upp filen');
+    }
+
+    return response.json();
+  },
+
+  async getAttachments(slug: string): Promise<Attachment[]> {
+    const res = await fetchJSON<{ data: Attachment[] }>(`/pages/${slug}/attachments`);
+    return res.data || [];
+  },
+
+  async deleteAttachment(id: number): Promise<void> {
+    await fetchJSON(`/attachments/${id}`, {
+      method: 'DELETE',
+    });
   },
 };

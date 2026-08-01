@@ -17,8 +17,21 @@ type Page struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Revisions []Revision     `json:"revisions,omitempty" gorm:"foreignKey:PageID"`
-	Tags      []Tag          `json:"tags,omitempty" gorm:"many2many:page_tags;"`
+	Revisions   []Revision     `json:"revisions,omitempty" gorm:"foreignKey:PageID"`
+	Attachments []Attachment   `json:"attachments,omitempty" gorm:"foreignKey:PageID"`
+	Tags        []Tag          `json:"tags,omitempty" gorm:"many2many:page_tags;"`
+}
+
+// Attachment represents an uploaded file associated with a page
+type Attachment struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	PageID    uint      `gorm:"index;not null" json:"page_id"`
+	Filename  string    `gorm:"not null" json:"filename"`
+	Original  string    `gorm:"not null" json:"original_name"`
+	FilePath  string    `gorm:"not null" json:"file_path"`
+	MimeType  string    `json:"mime_type"`
+	FileSize  int64     `json:"file_size"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Revision represents a historical edit version of a wiki page

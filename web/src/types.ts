@@ -14,6 +14,17 @@ export interface Revision {
   created_at: string;
 }
 
+export interface Attachment {
+  id: number;
+  page_id: number;
+  filename: string;
+  original_name: string;
+  file_path: string;
+  mime_type: string;
+  file_size: number;
+  created_at: string;
+}
+
 export interface Page {
   id: number;
   slug: string;
@@ -25,6 +36,7 @@ export interface Page {
   updated_at: string;
   tags?: Tag[];
   revisions?: Revision[];
+  attachments?: Attachment[];
 }
 
 export interface CreatePageInput {
