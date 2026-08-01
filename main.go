@@ -58,8 +58,9 @@ func main() {
 		v1.GET("/pages/:slug/attachments", wikiHandler.GetAttachments)
 		v1.DELETE("/attachments/:id", wikiHandler.DeleteAttachment)
 
-		// Revision history
+		// Revision history & Backlinks
 		v1.GET("/pages/:slug/revisions", wikiHandler.GetRevisions)
+		v1.GET("/pages/:slug/backlinks", wikiHandler.GetBacklinks)
 
 		// Search & Tags
 		v1.GET("/search", wikiHandler.SearchPages)
