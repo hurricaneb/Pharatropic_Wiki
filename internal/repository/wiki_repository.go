@@ -232,3 +232,28 @@ func (r *WikiRepository) GetAttachmentByID(id uint) (*models.Attachment, error) 
 func (r *WikiRepository) DeleteAttachment(id uint) error {
 	return r.db.Delete(&models.Attachment{}, id).Error
 }
+
+func (r *WikiRepository) GetBacklinks(targetSlug string) ([]models.Page, error) {
+	var targetPage models.Page
+	if err := r.db.Where("slug = ?", targetSlug).First(&targetPage).Error; err != nil {
+		return nil, errors.New("sidan hittades inte")
+	}
+
+	wikiLinkPattern1 := "%[[" + targetPage.Title + "]]%"
+	wikiLinkPattern2 := "%[[" + targetPage.Title + "|%"
+	slugPattern1 := "%/pages/" + targetSlug + "%"
+	slugPattern2 := "%/wiki/" + targetSlug + "%"
+	wikilinkSchemePattern := "%#wikilink:" + targetSlug + "%"
+
+	var backlinks []models.Page
+	err := r.db.Preload("Tags").
+		Where("id != ?", targetPage.ID).
+		Where(
+			"content LIKE ? OR content LIKE ? OR content LIKE ? OR content LIKE ? OR content LIKE ?",
+			wikiLinkPattern1, wikiLinkPattern2, slugPattern1, slugPattern2, wikilinkSchemePattern,
+		).
+		Order("updated_at DESC").
+		Find(&backlinks).Error
+
+	return backlinks, err
+}

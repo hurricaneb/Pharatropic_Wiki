@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, Attachment } from '../types';
-import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image } from 'lucide-react';
+import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image, Link2 } from 'lucide-react';
 import { wikiAPI } from '../api';
 
 import { transformWikiLinks, slugify } from '../utils/wikiLink';
@@ -32,6 +32,15 @@ export const PageView: React.FC<PageViewProps> = ({
   onRefreshPage,
 }) => {
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [backlinks, setBacklinks] = useState<Page[]>([]);
+
+  useEffect(() => {
+    if (page?.slug) {
+      wikiAPI.getBacklinks(page.slug)
+        .then(setBacklinks)
+        .catch(() => setBacklinks([]));
+    }
+  }, [page?.slug]);
 
   const formattedDate = new Date(page.updated_at).toLocaleDateString('sv-SE', {
     year: 'numeric',
@@ -260,6 +269,42 @@ export const PageView: React.FC<PageViewProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Backlinks Section */}
+      {backlinks && backlinks.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '20px', paddingTop: '20px' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Link2 size={18} color="var(--accent)" />
+            Sidor som länkar hit (Backlinks) ({backlinks.length})
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+            {backlinks.map((bPage) => (
+              <div
+                key={bPage.id}
+                className="glass-panel"
+                style={{
+                  padding: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-color)',
+                }}
+                onClick={() => onSelectPage && onSelectPage(bPage.slug)}
+              >
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>
+                  {bPage.title}
+                </div>
+                {bPage.summary && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {bPage.summary}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

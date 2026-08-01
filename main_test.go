@@ -42,6 +42,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 		v1.GET("/pages/:slug/attachments", h.GetAttachments)
 		v1.DELETE("/attachments/:id", h.DeleteAttachment)
 		v1.GET("/pages/:slug/revisions", h.GetRevisions)
+		v1.GET("/pages/:slug/backlinks", h.GetBacklinks)
 		v1.GET("/search", h.SearchPages)
 	}
 
