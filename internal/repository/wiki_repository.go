@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	"wiki/internal/models"
 
 	"github.com/gosimple/slug"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -20,10 +23,14 @@ func NewWikiRepository(db *gorm.DB) *WikiRepository {
 	return &WikiRepository{db: db}
 }
 
-func (r *WikiRepository) CreatePage(req *models.CreatePageRequest) (*models.Page, error) {
+func (r *WikiRepository) CreatePage(req *models.CreatePageRequest, author string) (*models.Page, error) {
 	pageSlug := slug.Make(req.Title)
 	if pageSlug == "" {
 		return nil, errors.New("ogiltig titel")
+	}
+
+	if author == "" {
+		author = "Användare"
 	}
 
 	var existing models.Page
@@ -66,7 +73,7 @@ func (r *WikiRepository) CreatePage(req *models.CreatePageRequest) (*models.Page
 		Title:   page.Title,
 		Content: page.Content,
 		Comment: comment,
-		Author:  "Användare",
+		Author:  author,
 	}
 	r.db.Create(&revision)
 
@@ -108,10 +115,14 @@ func (r *WikiRepository) ListPages(search string, tag string) ([]models.Page, er
 	return pages, err
 }
 
-func (r *WikiRepository) UpdatePage(pageSlug string, req *models.UpdatePageRequest) (*models.Page, error) {
+func (r *WikiRepository) UpdatePage(pageSlug string, req *models.UpdatePageRequest, author string) (*models.Page, error) {
 	var page models.Page
 	if err := r.db.Preload("Tags").Where("slug = ?", pageSlug).First(&page).Error; err != nil {
 		return nil, errors.New("sidan hittades inte")
+	}
+
+	if author == "" {
+		author = "Användare"
 	}
 
 	if req.Title != "" && req.Title != page.Title {
@@ -153,7 +164,7 @@ func (r *WikiRepository) UpdatePage(pageSlug string, req *models.UpdatePageReque
 		Title:   page.Title,
 		Content: page.Content,
 		Comment: comment,
-		Author:  "Användare",
+		Author:  author,
 	}
 	r.db.Create(&revision)
 
@@ -264,10 +275,14 @@ func (r *WikiRepository) GetBacklinks(targetSlug string) ([]models.Page, error) 
 	return backlinks, err
 }
 
-func (r *WikiRepository) RevertPageRevision(pageSlug string, revisionID uint) (*models.Page, error) {
+func (r *WikiRepository) RevertPageRevision(pageSlug string, revisionID uint, author string) (*models.Page, error) {
 	var page models.Page
 	if err := r.db.Where("slug = ?", pageSlug).First(&page).Error; err != nil {
 		return nil, errors.New("sidan hittades inte")
+	}
+
+	if author == "" {
+		author = "Användare"
 	}
 
 	var targetRev models.Revision
@@ -304,9 +319,146 @@ func (r *WikiRepository) RevertPageRevision(pageSlug string, revisionID uint) (*
 		Title:   page.Title,
 		Content: page.Content,
 		Comment: comment,
-		Author:  "Användare",
+		Author:  author,
 	}
 	r.db.Create(&newRev)
 
 	return &page, nil
+}
+
+// User repository methods
+
+func (r *WikiRepository) CreateUser(username, email, password, role string) (*models.User, error) {
+	if role == "" {
+		role = "user"
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	user := models.User{
+		Username:     username,
+		Email:        email,
+		PasswordHash: string(hash),
+		Role:         role,
+	}
+
+	if err := r.db.Create(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *WikiRepository) GetUserByUsernameOrEmail(identifier string) (*models.User, error) {
+	var user models.User
+	err := r.db.Where("username = ? OR email = ?", identifier, identifier).First(&user).Error
+	if err != nil {
+		return nil, errors.New("användaren hittades inte")
+	}
+	return &user, nil
+}
+
+func (r *WikiRepository) GetUserByID(id uint) (*models.User, error) {
+	var user models.User
+	if err := r.db.First(&user, id).Error; err != nil {
+		return nil, errors.New("användaren hittades inte")
+	}
+	return &user, nil
+}
+
+func (r *WikiRepository) ListUsers() ([]models.User, error) {
+	var users []models.User
+	err := r.db.Order("created_at ASC").Find(&users).Error
+	return users, err
+}
+
+func (r *WikiRepository) ValidateUserPassword(user *models.User, password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	return err == nil
+}
+
+// ApiKey repository methods
+
+func (r *WikiRepository) CreateUserApiKey(userID uint, name string, expiresOption string) (*models.ApiKey, string, error) {
+	var user models.User
+	if err := r.db.First(&user, userID).Error; err != nil {
+		return nil, "", errors.New("användaren hittades inte")
+	}
+
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		return nil, "", err
+	}
+	rawSecret := "ptc_key_" + hex.EncodeToString(bytes)
+	prefix := rawSecret[:12] + "..."
+
+	var expiresAt *time.Time
+	now := time.Now()
+
+	switch expiresOption {
+	case "7d":
+		t := now.Add(7 * 24 * time.Hour)
+		expiresAt = &t
+	case "30d":
+		t := now.Add(30 * 24 * time.Hour)
+		expiresAt = &t
+	case "90d":
+		t := now.Add(90 * 24 * time.Hour)
+		expiresAt = &t
+	case "1y":
+		t := now.Add(365 * 24 * time.Hour)
+		expiresAt = &t
+	case "never", "":
+		expiresAt = nil
+	}
+
+	apiKey := models.ApiKey{
+		UserID:    userID,
+		Name:      name,
+		Key:       rawSecret,
+		Prefix:    prefix,
+		Active:    true,
+		ExpiresAt: expiresAt,
+	}
+
+	if err := r.db.Create(&apiKey).Error; err != nil {
+		return nil, "", err
+	}
+
+	return &apiKey, rawSecret, nil
+}
+
+func (r *WikiRepository) ListUserApiKeys(userID uint) ([]models.ApiKey, error) {
+	var keys []models.ApiKey
+	err := r.db.Where("user_id = ?", userID).Order("created_at DESC").Find(&keys).Error
+	return keys, err
+}
+
+func (r *WikiRepository) RevokeUserApiKey(userID uint, keyID uint) error {
+	return r.db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&models.ApiKey{}).Error
+}
+
+func (r *WikiRepository) ValidateApiKey(rawKey string) (*models.User, *models.ApiKey, error) {
+	var apiKey models.ApiKey
+	if err := r.db.Where("key = ? AND active = ?", rawKey, true).First(&apiKey).Error; err != nil {
+		return nil, nil, errors.New("ogiltig eller inaktiv API-nyckel")
+	}
+
+	if apiKey.ExpiresAt != nil && time.Now().After(*apiKey.ExpiresAt) {
+		return nil, nil, errors.New("API-nyckeln har gått ut")
+	}
+
+	now := time.Now()
+	apiKey.LastUsedAt = &now
+	r.db.Model(&apiKey).Update("last_used_at", now)
+
+	var user models.User
+	if err := r.db.First(&user, apiKey.UserID).Error; err != nil {
+		return nil, nil, errors.New("användaren för denna API-nyckel finns inte")
+	}
+
+	return &user, &apiKey, nil
 }

@@ -5,8 +5,11 @@ import { PageView } from './components/PageView';
 import { PageEditor } from './components/PageEditor';
 import { RevisionHistory } from './components/RevisionHistory';
 import { ApiModal } from './components/ApiModal';
+import { AuthModal } from './components/AuthModal';
+import { UserApiKeysModal } from './components/UserApiKeysModal';
+import { AdminUsersModal } from './components/AdminUsersModal';
 import { wikiAPI } from './api';
-import type { Page, Revision, Tag, CreatePageInput, UpdatePageInput } from './types';
+import type { Page, Revision, Tag, User, CreatePageInput, UpdatePageInput } from './types';
 
 export function App() {
   const [pages, setPages] = useState<Page[]>([]);
@@ -20,16 +23,26 @@ export function App() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [newTitlePrefill, setNewTitlePrefill] = useState('');
   
+  // Auth & User state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showApiKeysModal, setShowApiKeysModal] = useState(false);
+  const [showAdminUsersModal, setShowAdminUsersModal] = useState(false);
+
   const [showApiModal, setShowApiModal] = useState(false);
   const [healthOk, setHealthOk] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Check backend health
+  // Check backend health & fetch logged-in user
   useEffect(() => {
     wikiAPI.getHealth()
       .then(() => setHealthOk(true))
       .catch(() => setHealthOk(false));
+
+    wikiAPI.getMe()
+      .then(setCurrentUser)
+      .catch(() => setCurrentUser(null));
   }, []);
 
   // Dynamic Browser Tab Title
@@ -58,11 +71,11 @@ export function App() {
       setTags(fetchedTags);
 
       // Default select first page if none active
-      if (!activeSlug && fetchedPages.length > 0) {
+      if (fetchedPages.length > 0 && !activeSlug) {
         setActiveSlug(fetchedPages[0].slug);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Kunde inte ansluta till Go Wiki API:t.');
+      setErrorMsg(err.message || 'Kunde inte ansluta till servern.');
     } finally {
       setIsLoading(false);
     }
@@ -72,10 +85,11 @@ export function App() {
     loadSidebarData();
   }, [loadSidebarData]);
 
-  // Fetch active page details
+  // Fetch Active Page Details
   const loadPageDetails = useCallback(async (slug: string) => {
+    setIsLoading(true);
+    setErrorMsg('');
     try {
-      setIsLoading(true);
       const pageData = await wikiAPI.getPage(slug);
       setActivePage(pageData);
     } catch (err: any) {
@@ -113,30 +127,27 @@ export function App() {
   // Handle Delete Page
   const handleDeletePage = async () => {
     if (!activeSlug || !activePage) return;
-    if (!window.confirm(`Är du säker på att du vill radera sidan "${activePage.title}"?`)) {
-      return;
-    }
-
-    try {
-      await wikiAPI.deletePage(activeSlug);
-      setActiveSlug(null);
-      setActivePage(null);
-      await loadSidebarData();
-      setViewMode('view');
-    } catch (err: any) {
-      alert(err.message || 'Misslyckades att radera sidan.');
+    if (window.confirm(`Är du säker på att du vill ta bort sidan "${activePage.title}"?`)) {
+      try {
+        await wikiAPI.deletePage(activeSlug);
+        setActiveSlug(null);
+        setActivePage(null);
+        await loadSidebarData();
+      } catch (err: any) {
+        alert(err.message || 'Misslyckades att ta bort sidan.');
+      }
     }
   };
 
-  // Load Revision History
+  // Fetch Revisions
   const handleViewHistory = async () => {
     if (!activeSlug) return;
     try {
-      const revs = await wikiAPI.getRevisions(activeSlug);
-      setRevisions(revs);
+      const fetchedRevisions = await wikiAPI.getRevisions(activeSlug);
+      setRevisions(fetchedRevisions);
       setViewMode('revisions');
     } catch (err: any) {
-      alert(err.message || 'Misslyckades att hämta revisioner.');
+      alert(err.message || 'Kunde inte hämta ändringshistorik.');
     }
   };
 
@@ -150,25 +161,34 @@ export function App() {
     setViewMode('view');
   };
 
+  const handleLogout = async () => {
+    await wikiAPI.logout();
+    setCurrentUser(null);
+  };
+
   return (
     <div className="app-container">
       <Navbar
         searchQuery={searchQuery}
-        onSearchChange={(q) => {
-          setSearchQuery(q);
-          if (viewMode !== 'view') setViewMode('view');
+        onSearchChange={setSearchQuery}
+        onNewPage={() => {
+          setNewTitlePrefill('');
+          setViewMode('new');
         }}
-        onNewPage={() => setViewMode('new')}
         onOpenApiModal={() => setShowApiModal(true)}
         onHomeClick={() => {
-          setActiveTag(null);
-          setSearchQuery('');
+          if (pages.length > 0) setActiveSlug(pages[0].slug);
           setViewMode('view');
         }}
         healthOk={healthOk}
+        currentUser={currentUser}
+        onOpenLogin={() => setShowAuthModal(true)}
+        onOpenApiKeys={() => setShowApiKeysModal(true)}
+        onOpenAdminUsers={() => setShowAdminUsersModal(true)}
+        onLogout={handleLogout}
       />
 
-      <main className="main-layout">
+      <main className="main-layout" style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
         <Sidebar
           pages={pages}
           tags={tags}
@@ -179,8 +199,7 @@ export function App() {
             setViewMode('view');
           }}
           onSelectTag={(tagSlug) => {
-            setActiveTag(tagSlug);
-            if (viewMode !== 'view') setViewMode('view');
+            setActiveTag(activeTag === tagSlug ? null : tagSlug);
           }}
         />
 
@@ -257,6 +276,25 @@ export function App() {
         <ApiModal
           page={activePage}
           onClose={() => setShowApiModal(false)}
+        />
+      )}
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={(user) => setCurrentUser(user)}
+        />
+      )}
+
+      {showApiKeysModal && (
+        <UserApiKeysModal
+          onClose={() => setShowApiKeysModal(false)}
+        />
+      )}
+
+      {showAdminUsersModal && (
+        <AdminUsersModal
+          onClose={() => setShowAdminUsersModal(false)}
         />
       )}
     </div>
