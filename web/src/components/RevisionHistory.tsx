@@ -60,9 +60,9 @@ export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
       </div>
 
       {/* Grid: Timeline vs Content preview */}
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 300px) minmax(0, 1fr)', gap: '24px' }}>
         {/* Revision Timeline List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
           <h3 style={{ fontSize: '0.9rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
             Revisioner
           </h3>
@@ -90,6 +90,7 @@ export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
                     background: isSelected ? 'var(--primary-light)' : 'rgba(0,0,0,0.2)',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
+                    wordBreak: 'break-word',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -107,8 +108,8 @@ export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
                     <Clock size={13} /> {dateStr}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    <MessageSquare size={13} color="var(--primary)" /> {rev.comment || 'Ingen kommentar'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>
+                    <MessageSquare size={13} color="var(--primary)" style={{ flexShrink: 0 }} /> {rev.comment || 'Ingen kommentar'}
                   </div>
                 </div>
               );
@@ -117,9 +118,9 @@ export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
         </div>
 
         {/* Selected Revision Content Preview */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           {selectedRevision ? (
-            <div className="glass-panel" style={{ padding: '24px', background: 'rgba(0,0,0,0.3)' }}>
+            <div className="glass-panel" style={{ padding: '24px', background: 'rgba(0,0,0,0.3)', minWidth: 0 }}>
               <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>
