@@ -18,6 +18,7 @@ export function App() {
   const [viewMode, setViewMode] = useState<'view' | 'edit' | 'new' | 'revisions'>('view');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [newTitlePrefill, setNewTitlePrefill] = useState('');
   
   const [showApiModal, setShowApiModal] = useState(false);
   const [healthOk, setHealthOk] = useState(true);
@@ -78,6 +79,7 @@ export function App() {
   // Handle Create Page
   const handleCreatePage = async (input: CreatePageInput) => {
     const newPage = await wikiAPI.createPage(input);
+    setNewTitlePrefill('');
     await loadSidebarData();
     setActiveSlug(newPage.slug);
     setViewMode('view');
@@ -166,8 +168,12 @@ export function App() {
 
           {viewMode === 'new' && (
             <PageEditor
+              initialTitle={newTitlePrefill}
               onSave={handleCreatePage as any}
-              onCancel={() => setViewMode('view')}
+              onCancel={() => {
+                setNewTitlePrefill('');
+                setViewMode('view');
+              }}
             />
           )}
 
@@ -190,10 +196,19 @@ export function App() {
           {viewMode === 'view' && activePage && (
             <PageView
               page={activePage}
+              pages={pages}
               onEdit={() => setViewMode('edit')}
               onViewHistory={handleViewHistory}
               onDelete={handleDeletePage}
               onOpenApiModal={() => setShowApiModal(true)}
+              onSelectPage={(slug) => {
+                setActiveSlug(slug);
+                setViewMode('view');
+              }}
+              onCreateMissingPage={(title) => {
+                setNewTitlePrefill(title);
+                setViewMode('new');
+              }}
               onRefreshPage={() => activeSlug && loadPageDetails(activeSlug)}
             />
           )}
