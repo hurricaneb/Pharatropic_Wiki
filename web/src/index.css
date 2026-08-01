@@ -237,8 +237,22 @@ body {
   color: #e5e7eb;
 }
 
+.markdown-body {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
 .markdown-body p {
   margin-bottom: 16px;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 16px 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
 }
 
 .markdown-body ul, .markdown-body ol {
@@ -265,6 +279,7 @@ body {
   border-radius: var(--radius-md);
   padding: 16px;
   overflow-x: auto;
+  max-width: 100%;
   margin-bottom: 20px;
 }
 
