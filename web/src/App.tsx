@@ -32,6 +32,21 @@ export function App() {
       .catch(() => setHealthOk(false));
   }, []);
 
+  // Dynamic Browser Tab Title
+  useEffect(() => {
+    if (viewMode === 'new') {
+      document.title = 'Skapa ny sida | PTC Wiki';
+    } else if (viewMode === 'edit' && activePage) {
+      document.title = `Redigerar: ${activePage.title} | PTC Wiki`;
+    } else if (viewMode === 'revisions' && activePage) {
+      document.title = `Ändringshistorik: ${activePage.title} | PTC Wiki`;
+    } else if (viewMode === 'view' && activePage) {
+      document.title = `${activePage.title} | PTC Wiki`;
+    } else {
+      document.title = 'Pharatropic Wiki (PTC Wiki)';
+    }
+  }, [viewMode, activePage]);
+
   // Fetch page list & tags
   const loadSidebarData = useCallback(async () => {
     try {
