@@ -25,7 +25,10 @@ export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
 
   const handleRevert = async () => {
     if (!selectedRevision || !onRevertRevision) return;
-    if (!window.confirm(`Är du säker på att du vill återställa wikisidan till revision #${selectedRevision.id}?`)) {
+    const selectedIdx = revisions.findIndex((r) => r.id === selectedRevision.id);
+    const seqNo = selectedIdx !== -1 ? revisions.length - selectedIdx : selectedRevision.id;
+
+    if (!window.confirm(`Är du säker på att du vill återställa wikisidan till revision #${seqNo}?`)) {
       return;
     }
 
