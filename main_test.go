@@ -42,6 +42,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 		v1.GET("/pages/:slug/attachments", h.GetAttachments)
 		v1.DELETE("/attachments/:id", h.DeleteAttachment)
 		v1.GET("/pages/:slug/revisions", h.GetRevisions)
+		v1.GET("/pages/:slug/backlinks", h.GetBacklinks)
 		v1.GET("/search", h.SearchPages)
 	}
 
@@ -120,5 +121,53 @@ func TestCreateAndFetchPage(t *testing.T) {
 
 	if w4.Code != http.StatusOK {
 		t.Fatalf("Expected status 200 OK for revisions, got %d", w4.Code)
+	}
+}
+
+func TestBacklinksEndpoint(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	// 1. Create target page
+	p1 := models.CreatePageRequest{
+		Title:   "Välkommen till Wikin",
+		Content: "Välkomstsida content",
+	}
+	b1, _ := json.Marshal(p1)
+	w1 := httptest.NewRecorder()
+	r1, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(b1))
+	r1.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w1, r1)
+
+	// 2. Create linking page "Test" that contains [[Välkommen till Wikin]]
+	p2 := models.CreatePageRequest{
+		Title:   "Test",
+		Content: "Länkar till [[Välkommen till Wikin]] här!",
+	}
+	b2, _ := json.Marshal(p2)
+	w2 := httptest.NewRecorder()
+	r2, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(b2))
+	r2.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w2, r2)
+
+	// 3. Fetch backlinks for "valkommen-till-wikin"
+	w3 := httptest.NewRecorder()
+	r3, _ := http.NewRequest("GET", "/api/v1/pages/valkommen-till-wikin/backlinks", nil)
+	router.ServeHTTP(w3, r3)
+
+	if w3.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for backlinks, got %d", w3.Code)
+	}
+
+	var res struct {
+		Data []models.Page `json:"data"`
+	}
+	json.Unmarshal(w3.Body.Bytes(), &res)
+
+	if len(res.Data) != 1 {
+		t.Fatalf("Expected 1 backlink, got %d: %s", len(res.Data), w3.Body.String())
+	}
+	if res.Data[0].Slug != "test" {
+		t.Fatalf("Expected backlink from 'test', got %s", res.Data[0].Slug)
 	}
 }

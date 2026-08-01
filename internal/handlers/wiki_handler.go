@@ -247,3 +247,16 @@ func (h *WikiHandler) DeleteAttachment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Bilagan har raderats"})
 }
+
+// GetBacklinks GET /api/v1/pages/:slug/backlinks
+func (h *WikiHandler) GetBacklinks(c *gin.Context) {
+	slug := c.Param("slug")
+
+	backlinks, err := h.repo.GetBacklinks(slug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": backlinks, "total": len(backlinks)})
+}
