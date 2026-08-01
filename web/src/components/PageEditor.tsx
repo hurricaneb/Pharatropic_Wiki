@@ -221,7 +221,15 @@ export const PageEditor: React.FC<PageEditorProps> = ({
 
             {(activeTab === 'preview' || activeTab === 'split') && (
               <div className="glass-panel markdown-body" style={{ padding: '20px', overflowY: 'auto', maxHeight: '500px', background: 'rgba(0,0,0,0.4)' }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  urlTransform={(url) => {
+                    const apiHost = window.location.hostname === 'localhost' && window.location.port !== '8080' ? 'http://localhost:8080' : '';
+                    let finalUrl = url.startsWith('/uploads/') ? `${apiHost}${url}` : url;
+                    return finalUrl.replace(/ /g, '%20');
+                  }}
+                >
                   {content || '*Ingen förhandsgranskning än...*'}
                 </ReactMarkdown>
               </div>
