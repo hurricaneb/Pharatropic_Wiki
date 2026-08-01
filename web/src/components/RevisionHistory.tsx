@@ -1,0 +1,126 @@
+import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import type { Page, Revision } from '../types';
+import { ArrowLeft, Clock, MessageSquare } from 'lucide-react';
+
+interface RevisionHistoryProps {
+  page: Page;
+  revisions: Revision[];
+  onBack: () => void;
+}
+
+export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
+  page,
+  revisions,
+  onBack,
+}) => {
+  const [selectedRevision, setSelectedRevision] = useState<Revision | null>(
+    revisions.length > 0 ? revisions[0] : null
+  );
+
+  return (
+    <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '18px' }}>
+        <div>
+          <button className="btn btn-secondary" onClick={onBack} style={{ marginBottom: '12px', padding: '6px 12px', fontSize: '0.85rem' }}>
+            <ArrowLeft size={16} /> Tillbaka till sidan
+          </button>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
+            Ändringshistorik: {page.title}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Totalt {revisions.length} sparade revisioner
+          </p>
+        </div>
+      </div>
+
+      {/* Grid: Timeline vs Content preview */}
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
+        {/* Revision Timeline List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Revisioner
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '550px', overflowY: 'auto' }}>
+            {revisions.map((rev, index) => {
+              const isSelected = selectedRevision?.id === rev.id;
+              const dateStr = new Date(rev.created_at).toLocaleDateString('sv-SE', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <div
+                  key={rev.id}
+                  onClick={() => setSelectedRevision(rev)}
+                  style={{
+                    padding: '14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid',
+                    borderColor: isSelected ? 'var(--primary)' : 'var(--border-color)',
+                    background: isSelected ? 'var(--primary-light)' : 'rgba(0,0,0,0.2)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isSelected ? '#fff' : 'var(--text-main)' }}>
+                      Revision #{revisions.length - index}
+                    </span>
+                    {index === 0 && (
+                      <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--success)', color: '#fff', fontWeight: 700 }}>
+                        Nuvarande
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-subtle)', marginBottom: '6px' }}>
+                    <Clock size={13} /> {dateStr}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    <MessageSquare size={13} color="var(--primary)" /> {rev.comment || 'Ingen kommentar'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Revision Content Preview */}
+        <div>
+          {selectedRevision ? (
+            <div className="glass-panel" style={{ padding: '24px', background: 'rgba(0,0,0,0.3)' }}>
+              <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '18px' }}>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>
+                  {selectedRevision.title}
+                </h3>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '16px' }}>
+                  <span>Författare: {selectedRevision.author}</span>
+                  <span>Kommentar: "{selectedRevision.comment}"</span>
+                </div>
+              </div>
+
+              <div className="markdown-body">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                  {selectedRevision.content}
+                </ReactMarkdown>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+              Välj en revision till vänster för att granska innehållet.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
