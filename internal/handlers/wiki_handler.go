@@ -171,9 +171,10 @@ func (h *WikiHandler) UploadAttachment(c *gin.Context) {
 		return
 	}
 
-	// Generate safe unique filename
-	safeName := filepath.Base(file.Filename)
-	uniqueFilename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), safeName)
+	// Generate safe unique filename (replace spaces with underscores for valid Markdown URLs)
+	rawBase := filepath.Base(file.Filename)
+	cleanBase := strings.ReplaceAll(rawBase, " ", "_")
+	uniqueFilename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), cleanBase)
 	dst := filepath.Join(uploadDir, uniqueFilename)
 
 	if err := c.SaveUploadedFile(file, dst); err != nil {
@@ -191,12 +192,13 @@ func (h *WikiHandler) UploadAttachment(c *gin.Context) {
 		return
 	}
 
-	// Generate Markdown snippet for easy copying
+	// Generate Markdown snippet with encoded spaces in URL if any
+	encodedFilePath := strings.ReplaceAll(filePath, " ", "%20")
 	var markdownSnippet string
 	if strings.HasPrefix(mimeType, "image/") {
-		markdownSnippet = fmt.Sprintf("![%s](%s)", file.Filename, filePath)
+		markdownSnippet = fmt.Sprintf("![%s](%s)", file.Filename, encodedFilePath)
 	} else {
-		markdownSnippet = fmt.Sprintf("[%s](%s)", file.Filename, filePath)
+		markdownSnippet = fmt.Sprintf("[%s](%s)", file.Filename, encodedFilePath)
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
