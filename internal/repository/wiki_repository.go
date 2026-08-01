@@ -239,18 +239,23 @@ func (r *WikiRepository) GetBacklinks(targetSlug string) ([]models.Page, error) 
 		return nil, errors.New("sidan hittades inte")
 	}
 
-	wikiLinkPattern1 := "%[[" + targetPage.Title + "]]%"
-	wikiLinkPattern2 := "%[[" + targetPage.Title + "|%"
-	slugPattern1 := "%/pages/" + targetSlug + "%"
-	slugPattern2 := "%/wiki/" + targetSlug + "%"
-	wikilinkSchemePattern := "%#wikilink:" + targetSlug + "%"
+	lowerTitle := strings.ToLower(targetPage.Title)
+	lowerSlug := strings.ToLower(targetSlug)
+
+	p1 := "%[[" + lowerTitle + "]]%"
+	p2 := "%[[" + lowerTitle + "|%"
+	p3 := "%[[" + lowerSlug + "]]%"
+	p4 := "%[[" + lowerSlug + "|%"
+	p5 := "%/pages/" + lowerSlug + "%"
+	p6 := "%/wiki/" + lowerSlug + "%"
+	p7 := "%#wikilink:" + lowerSlug + "%"
 
 	var backlinks []models.Page
 	err := r.db.Preload("Tags").
 		Where("id != ?", targetPage.ID).
 		Where(
-			"content LIKE ? OR content LIKE ? OR content LIKE ? OR content LIKE ? OR content LIKE ?",
-			wikiLinkPattern1, wikiLinkPattern2, slugPattern1, slugPattern2, wikilinkSchemePattern,
+			"LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ?",
+			p1, p2, p3, p4, p5, p6, p7,
 		).
 		Order("updated_at DESC").
 		Find(&backlinks).Error
