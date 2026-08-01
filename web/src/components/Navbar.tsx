@@ -38,9 +38,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <BookOpen size={24} color="#fff" />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, background: 'linear-gradient(90deg, #fff, #a5b4fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.2 }}>
-              WikiEngine
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 style={{ fontSize: '1.3rem', fontWeight: 800, background: 'linear-gradient(90deg, #fff, #a5b4fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.2 }}>
+                Pharatropic Wiki
+              </h1>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.4)' }}>
+                PTC Wiki
+              </span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', backgroundColor: healthOk ? 'var(--success)' : 'var(--danger)' }}></span>
               Go REST API + React UI

@@ -1,4 +1,4 @@
-# Wiki Engine & REST API
+# Pharatropic Wiki (PTC Wiki)
 
 En snabb, högpresterande och utökbar Wiki-applikation skriven i **Go** med ett komplett **REST API** och ett modernt **React UI**.
 
