@@ -36,6 +36,10 @@ func main() {
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-API-Key"}
 	router.Use(cors.New(corsConfig))
 
+	// Serve uploaded files statically
+	os.MkdirAll("./uploads", 0755)
+	router.Static("/uploads", "./uploads")
+
 	// API v1 Routes
 	v1 := router.Group("/api/v1")
 	v1.Use(middleware.APIKeyAuth(cfg.MasterAPIKey))
@@ -48,6 +52,11 @@ func main() {
 		v1.POST("/pages", wikiHandler.CreatePage)
 		v1.PUT("/pages/:slug", wikiHandler.UpdatePage)
 		v1.DELETE("/pages/:slug", wikiHandler.DeletePage)
+
+		// File attachments
+		v1.POST("/pages/:slug/attachments", wikiHandler.UploadAttachment)
+		v1.GET("/pages/:slug/attachments", wikiHandler.GetAttachments)
+		v1.DELETE("/attachments/:id", wikiHandler.DeleteAttachment)
 
 		// Revision history
 		v1.GET("/pages/:slug/revisions", wikiHandler.GetRevisions)

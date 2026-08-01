@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, CreatePageInput, UpdatePageInput } from '../types';
-import { Save, X, Eye, Edit3, MessageSquare } from 'lucide-react';
+import { Save, X, Eye, Edit3, MessageSquare, Paperclip } from 'lucide-react';
+import { wikiAPI } from '../api';
 
 interface PageEditorProps {
   initialPage?: Page | null;
@@ -25,7 +26,38 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   const [comment, setComment] = useState('');
   const [activeTab, setActiveTab] = useState<'editor' | 'split' | 'preview'>('split');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (!initialPage) {
+      alert('Spara sidan först innan du laddar upp filbilagor till den.');
+      return;
+    }
+
+    const file = files[0];
+    setIsUploading(true);
+    setErrorMsg('');
+
+    try {
+      const result = await wikiAPI.uploadAttachment(initialPage.slug, file);
+      // Append markdown snippet to content
+      const snippet = `\n\n${result.markdown}\n`;
+      setContent((prev) => prev + snippet);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Kunde inte ladda upp filen.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,11 +174,34 @@ export const PageEditor: React.FC<PageEditorProps> = ({
           </div>
         </div>
 
-        {/* Markdown Content Area */}
+        {/* Markdown Content Area + File Upload Bar */}
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
-            Innehåll (Markdown-format)
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+              Innehåll (Markdown-format)
+            </label>
+
+            {initialPage && (
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  <Paperclip size={14} />
+                  <span>{isUploading ? 'Laddar upp...' : 'Bifoga fil / bild'}</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           <div style={{ 
             display: 'grid', 

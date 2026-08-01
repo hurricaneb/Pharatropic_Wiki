@@ -39,6 +39,12 @@ export const ApiModal: React.FC<ApiModalProps> = ({ page, onClose }) => {
       cmd: `curl -H "X-API-Key: wiki-secret-api-key" ${apiHost}/api/v1/pages/${currentSlug}/revisions`,
     },
     {
+      title: 'Ladda upp fil / bild till sida',
+      method: 'POST',
+      endpoint: `/api/v1/pages/${currentSlug}/attachments`,
+      cmd: `curl -X POST ${apiHost}/api/v1/pages/${currentSlug}/attachments \\\n  -H "X-API-Key: wiki-secret-api-key" \\\n  -F "file=@/sökväg/till/bild.png"`,
+    },
+    {
       title: 'Sök i alla sidor',
       method: 'GET',
       endpoint: '/api/v1/search?q=start',

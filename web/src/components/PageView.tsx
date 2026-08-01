@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import type { Page } from '../types';
-import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code } from 'lucide-react';
+import type { Page, Attachment } from '../types';
+import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image } from 'lucide-react';
+import { wikiAPI } from '../api';
 
 interface PageViewProps {
   page: Page;
@@ -11,6 +12,7 @@ interface PageViewProps {
   onViewHistory: () => void;
   onDelete: () => void;
   onOpenApiModal: () => void;
+  onRefreshPage?: () => void;
 }
 
 export const PageView: React.FC<PageViewProps> = ({
@@ -19,7 +21,10 @@ export const PageView: React.FC<PageViewProps> = ({
   onViewHistory,
   onDelete,
   onOpenApiModal,
+  onRefreshPage,
 }) => {
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
   const formattedDate = new Date(page.updated_at).toLocaleDateString('sv-SE', {
     year: 'numeric',
     month: 'long',
@@ -27,6 +32,32 @@ export const PageView: React.FC<PageViewProps> = ({
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const handleCopyMarkdown = (att: Attachment) => {
+    const isImg = att.mime_type.startsWith('image/');
+    const snippet = isImg ? `![${att.original_name}](${att.file_path})` : `[${att.original_name}](${att.file_path})`;
+    navigator.clipboard.writeText(snippet);
+    setCopiedId(att.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDeleteAttachment = async (id: number) => {
+    if (!window.confirm('Är du säker på att du vill radera denna bilaga?')) return;
+    try {
+      await wikiAPI.deleteAttachment(id);
+      if (onRefreshPage) onRefreshPage();
+    } catch (err: any) {
+      alert(err.message || 'Misslyckades att radera bilagan.');
+    }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const apiHost = window.location.hostname === 'localhost' ? 'http://localhost:8080' : window.location.origin;
 
   return (
     <article className="glass-panel" style={{ padding: '36px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -101,6 +132,71 @@ export const PageView: React.FC<PageViewProps> = ({
           {page.content}
         </ReactMarkdown>
       </div>
+
+      {/* Attachments Section */}
+      {page.attachments && page.attachments.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '20px', paddingTop: '20px' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Paperclip size={18} color="var(--primary)" />
+            Bifogade Filer ({page.attachments.length})
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
+            {page.attachments.map((att) => {
+              const isImg = att.mime_type.startsWith('image/');
+              const fileUrl = `${apiHost}${att.file_path}`;
+
+              return (
+                <div key={att.id} className="glass-panel" style={{ padding: '14px', background: 'rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {isImg ? <Image size={20} color="var(--accent)" /> : <File size={20} color="var(--primary)" />}
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={att.original_name}>
+                        {att.original_name}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
+                        {formatSize(att.file_size)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      title="Ladda ner fil"
+                    >
+                      <Download size={14} /> Öppna
+                    </a>
+
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      onClick={() => handleCopyMarkdown(att)}
+                      title="Kopiera Markdown-länk"
+                    >
+                      {copiedId === att.id ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
+                      <span>Markdown</span>
+                    </button>
+
+                    <button
+                      className="btn btn-danger"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      onClick={() => handleDeleteAttachment(att.id)}
+                      title="Ta bort bilaga"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </article>
   );
 };

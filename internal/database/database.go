@@ -23,6 +23,7 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 	err = db.AutoMigrate(
 		&models.Page{},
 		&models.Revision{},
+		&models.Attachment{},
 		&models.Tag{},
 		&models.ApiKey{},
 	)
