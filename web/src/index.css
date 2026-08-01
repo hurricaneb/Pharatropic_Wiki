@@ -300,3 +300,42 @@ body {
   background: rgba(255, 255, 255, 0.05);
   font-weight: 600;
 }
+
+/* WikiLink Styling */
+.wikilink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.wikilink-exists {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.wikilink-exists:hover {
+  background: rgba(99, 102, 241, 0.3);
+  color: #fff;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.wikilink-missing {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fcd34d;
+  border: 1px dashed rgba(245, 158, 11, 0.5);
+}
+
+.wikilink-missing:hover {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fff;
+  border-color: var(--warning);
+  transform: translateY(-1px);
+}

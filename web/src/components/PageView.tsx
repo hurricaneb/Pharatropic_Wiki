@@ -6,21 +6,29 @@ import type { Page, Attachment } from '../types';
 import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image } from 'lucide-react';
 import { wikiAPI } from '../api';
 
+import { transformWikiLinks, slugify } from '../utils/wikiLink';
+
 interface PageViewProps {
   page: Page;
+  pages?: Page[];
   onEdit: () => void;
   onViewHistory: () => void;
   onDelete: () => void;
   onOpenApiModal: () => void;
+  onSelectPage?: (slug: string) => void;
+  onCreateMissingPage?: (title: string) => void;
   onRefreshPage?: () => void;
 }
 
 export const PageView: React.FC<PageViewProps> = ({
   page,
+  pages = [],
   onEdit,
   onViewHistory,
   onDelete,
   onOpenApiModal,
+  onSelectPage,
+  onCreateMissingPage,
   onRefreshPage,
 }) => {
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -142,8 +150,52 @@ export const PageView: React.FC<PageViewProps> = ({
 
       {/* Rendered Markdown Body */}
       <div className="markdown-body">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} urlTransform={customUrlTransform}>
-          {page.content}
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeHighlight]}
+          urlTransform={customUrlTransform}
+          components={{
+            a: ({ href, children, ...props }) => {
+              if (href && href.startsWith('#wikilink:')) {
+                const targetTitle = decodeURIComponent(href.replace('#wikilink:', ''));
+                const targetSlug = slugify(targetTitle);
+                const existingPage = pages.find((p) => p.slug === targetSlug);
+
+                if (existingPage) {
+                  return (
+                    <a
+                      href={`/wiki/${targetSlug}`}
+                      className="wikilink wikilink-exists"
+                      title={`Gå till "${existingPage.title}"`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (onSelectPage) onSelectPage(targetSlug);
+                      }}
+                    >
+                      {children}
+                    </a>
+                  );
+                } else {
+                  return (
+                    <a
+                      href="#"
+                      className="wikilink wikilink-missing"
+                      title={`Sidan "${targetTitle}" finns inte ännu. Klicka för att skapa!`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (onCreateMissingPage) onCreateMissingPage(targetTitle);
+                      }}
+                    >
+                      {children} ➕
+                    </a>
+                  );
+                }
+              }
+              return <a href={href} target="_blank" rel="noreferrer" {...props}>{children}</a>;
+            },
+          }}
+        >
+          {transformWikiLinks(page.content)}
         </ReactMarkdown>
       </div>
 
