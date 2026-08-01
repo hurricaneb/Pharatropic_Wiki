@@ -275,6 +275,21 @@ func (r *WikiRepository) RevertPageRevision(pageSlug string, revisionID uint) (*
 		return nil, errors.New("revisionen hittades inte för denna sida")
 	}
 
+	// Compute relative 1-based revision sequence number for this specific page
+	var allRevs []models.Revision
+	r.db.Where("page_id = ?", page.ID).Order("created_at ASC").Find(&allRevs)
+
+	seqNo := 0
+	for idx, rev := range allRevs {
+		if rev.ID == targetRev.ID {
+			seqNo = idx + 1
+			break
+		}
+	}
+	if seqNo == 0 {
+		seqNo = int(targetRev.ID)
+	}
+
 	page.Content = targetRev.Content
 	page.Title = targetRev.Title
 	page.UpdatedAt = time.Now()
@@ -283,7 +298,7 @@ func (r *WikiRepository) RevertPageRevision(pageSlug string, revisionID uint) (*
 		return nil, err
 	}
 
-	comment := fmt.Sprintf("Återställd till revision #%d", targetRev.ID)
+	comment := fmt.Sprintf("Återställd till revision #%d", seqNo)
 	newRev := models.Revision{
 		PageID:  page.ID,
 		Title:   page.Title,
