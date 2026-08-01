@@ -33,9 +33,23 @@ export const PageView: React.FC<PageViewProps> = ({
     minute: '2-digit',
   });
 
+  const customUrlTransform = (url: string) => {
+    const apiHost = window.location.hostname === 'localhost' && window.location.port !== '8080'
+      ? 'http://localhost:8080'
+      : '';
+
+    let finalUrl = url;
+    if (url.startsWith('/uploads/')) {
+      finalUrl = `${apiHost}${url}`;
+    }
+
+    return finalUrl.replace(/ /g, '%20');
+  };
+
   const handleCopyMarkdown = (att: Attachment) => {
     const isImg = att.mime_type.startsWith('image/');
-    const snippet = isImg ? `![${att.original_name}](${att.file_path})` : `[${att.original_name}](${att.file_path})`;
+    const encodedPath = att.file_path.replace(/ /g, '%20');
+    const snippet = isImg ? `![${att.original_name}](${encodedPath})` : `[${att.original_name}](${encodedPath})`;
     navigator.clipboard.writeText(snippet);
     setCopiedId(att.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -128,7 +142,7 @@ export const PageView: React.FC<PageViewProps> = ({
 
       {/* Rendered Markdown Body */}
       <div className="markdown-body">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} urlTransform={customUrlTransform}>
           {page.content}
         </ReactMarkdown>
       </div>

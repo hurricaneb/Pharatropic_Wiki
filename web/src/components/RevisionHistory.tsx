@@ -109,7 +109,15 @@ export const RevisionHistory: React.FC<RevisionHistoryProps> = ({
               </div>
 
               <div className="markdown-body">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  urlTransform={(url) => {
+                    const apiHost = window.location.hostname === 'localhost' && window.location.port !== '8080' ? 'http://localhost:8080' : '';
+                    let finalUrl = url.startsWith('/uploads/') ? `${apiHost}${url}` : url;
+                    return finalUrl.replace(/ /g, '%20');
+                  }}
+                >
                   {selectedRevision.content}
                 </ReactMarkdown>
               </div>
