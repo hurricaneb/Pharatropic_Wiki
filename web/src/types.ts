@@ -4,6 +4,26 @@ export interface Tag {
   slug: string;
 }
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface UserApiKey {
+  id: number;
+  user_id: number;
+  name: string;
+  key?: string;
+  prefix: string;
+  active: boolean;
+  expires_at?: string | null;
+  last_used_at?: string | null;
+  created_at: string;
+}
+
 export interface Revision {
   id: number;
   page_id: number;

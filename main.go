@@ -42,30 +42,47 @@ func main() {
 
 	// API v1 Routes
 	v1 := router.Group("/api/v1")
-	v1.Use(middleware.APIKeyAuth(cfg.MasterAPIKey))
+	v1.Use(middleware.AuthMiddleware(wikiRepo, cfg.MasterAPIKey))
 	{
 		v1.GET("/health", wikiHandler.GetHealth)
 
-		// Page operations
+		// Authentication
+		v1.POST("/auth/login", wikiHandler.AuthLogin)
+		v1.GET("/auth/me", wikiHandler.AuthMe)
+
+		// Page read operations (Public)
 		v1.GET("/pages", wikiHandler.ListPages)
 		v1.GET("/pages/:slug", wikiHandler.GetPage)
-		v1.POST("/pages", wikiHandler.CreatePage)
-		v1.PUT("/pages/:slug", wikiHandler.UpdatePage)
-		v1.DELETE("/pages/:slug", wikiHandler.DeletePage)
-
-		// File attachments
-		v1.POST("/pages/:slug/attachments", wikiHandler.UploadAttachment)
-		v1.GET("/pages/:slug/attachments", wikiHandler.GetAttachments)
-		v1.DELETE("/attachments/:id", wikiHandler.DeleteAttachment)
-
-		// Revision history & Backlinks
 		v1.GET("/pages/:slug/revisions", wikiHandler.GetRevisions)
-		v1.POST("/pages/:slug/revert/:revision_id", wikiHandler.RevertRevision)
 		v1.GET("/pages/:slug/backlinks", wikiHandler.GetBacklinks)
-
-		// Search & Tags
+		v1.GET("/pages/:slug/attachments", wikiHandler.GetAttachments)
 		v1.GET("/search", wikiHandler.SearchPages)
 		v1.GET("/tags", wikiHandler.ListTags)
+
+		// Write operations (Require Auth)
+		authed := v1.Group("")
+		authed.Use(middleware.RequireAuth())
+		{
+			authed.POST("/pages", wikiHandler.CreatePage)
+			authed.PUT("/pages/:slug", wikiHandler.UpdatePage)
+			authed.DELETE("/pages/:slug", wikiHandler.DeletePage)
+			authed.POST("/pages/:slug/attachments", wikiHandler.UploadAttachment)
+			authed.DELETE("/attachments/:id", wikiHandler.DeleteAttachment)
+			authed.POST("/pages/:slug/revert/:revision_id", wikiHandler.RevertRevision)
+
+			// User API Keys
+			authed.GET("/user/keys", wikiHandler.UserListApiKeys)
+			authed.POST("/user/keys", wikiHandler.UserCreateApiKey)
+			authed.DELETE("/user/keys/:id", wikiHandler.UserRevokeApiKey)
+		}
+
+		// Admin operations (Require Admin Role)
+		admin := v1.Group("/admin")
+		admin.Use(middleware.RequireAdmin())
+		{
+			admin.POST("/users", wikiHandler.AdminCreateUser)
+			admin.GET("/users", wikiHandler.AdminListUsers)
+		}
 	}
 
 	// Serve Static SPA Frontend (web/dist) if built
