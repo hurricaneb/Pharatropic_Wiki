@@ -1,0 +1,34 @@
+# Go binaries & build output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+dist/
+wiki-server
+
+# Databases & local state
+*.db
+*.sqlite
+*.sqlite3
+
+# Node / React
+node_modules/
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Environment variables & local secrets
+.env
+.env.local
+.env.*.local
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
