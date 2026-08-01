@@ -46,7 +46,7 @@ func seedDatabase(db *gorm.DB) {
 
 	welcomeTitle := "Välkommen till Wikin"
 	welcomeSlug := slug.Make(welcomeTitle)
-	welcomeContent := "# Välkommen till din nya Wiki! 🚀\n\nDetta är en modern, snabb och utökbar Wiki skriven i **Go** med ett komplett **REST API** och ett **React UI**.\n\n## 📖 Funktioner\n- **Markdown-stöd**: Skriv i ren Markdown med automatisk kodmarkering och preview.\n- **Versionshistorik**: Varje ändring sparas automatiskt som en ny revision så att du kan jämföra tidigare versioner.\n- **Fulltextsökning**: Hitta sidor blixtsnabbt.\n- **REST API (`/api/v1`)**: Integrera wikin med externa system via HTTP REST API.\n\n## 🛠️ REST API-exempel\nDu kan hämta denna sida via API:t:\n```bash\ncurl http://localhost:8080/api/v1/pages/valkommen-till-wikin\n```\n\nSkapa gärna nya sidor eller redigera denna!\n"
+	welcomeContent := "# Välkommen till Pharatropic Wiki (PTC Wiki)! 🚀\n\nDetta är en modern, snabb och utökbar Wiki skriven i **Go** med ett komplett **REST API** och ett **React UI**.\n\n## 📖 Funktioner\n- **Markdown-stöd**: Skriv i ren Markdown med automatisk kodmarkering och preview.\n- **Versionshistorik**: Varje ändring sparas automatiskt som en ny revision så att du kan jämföra tidigare versioner.\n- **Fulltextsökning**: Hitta sidor blixtsnabbt.\n- **REST API (`/api/v1`)**: Integrera wikin med externa system via HTTP REST API.\n\n## 🛠️ REST API-exempel\nDu kan hämta denna sida via API:t:\n```bash\ncurl http://localhost:8080/api/v1/pages/valkommen-till-wikin\n```\n\nSkapa gärna nya sidor eller redigera denna!\n"
 
 	startTag := models.Tag{Name: "Start", Slug: "start"}
 	guideTag := models.Tag{Name: "Guide", Slug: "guide"}
@@ -56,7 +56,7 @@ func seedDatabase(db *gorm.DB) {
 	page := models.Page{
 		Title:   welcomeTitle,
 		Slug:    welcomeSlug,
-		Summary: "Välkomstsida för Wiki-applikationen",
+		Summary: "Välkomstsida för Pharatropic Wiki (PTC Wiki)",
 		Content: welcomeContent,
 		Tags:    []models.Tag{startTag, guideTag},
 	}
