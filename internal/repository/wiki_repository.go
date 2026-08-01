@@ -232,3 +232,33 @@ func (r *WikiRepository) GetAttachmentByID(id uint) (*models.Attachment, error) 
 func (r *WikiRepository) DeleteAttachment(id uint) error {
 	return r.db.Delete(&models.Attachment{}, id).Error
 }
+
+func (r *WikiRepository) GetBacklinks(targetSlug string) ([]models.Page, error) {
+	var targetPage models.Page
+	if err := r.db.Where("slug = ?", targetSlug).First(&targetPage).Error; err != nil {
+		return nil, errors.New("sidan hittades inte")
+	}
+
+	lowerTitle := strings.ToLower(targetPage.Title)
+	lowerSlug := strings.ToLower(targetSlug)
+
+	p1 := "%[[" + lowerTitle + "]]%"
+	p2 := "%[[" + lowerTitle + "|%"
+	p3 := "%[[" + lowerSlug + "]]%"
+	p4 := "%[[" + lowerSlug + "|%"
+	p5 := "%/pages/" + lowerSlug + "%"
+	p6 := "%/wiki/" + lowerSlug + "%"
+	p7 := "%#wikilink:" + lowerSlug + "%"
+
+	var backlinks []models.Page
+	err := r.db.Preload("Tags").
+		Where("id != ?", targetPage.ID).
+		Where(
+			"LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ?",
+			p1, p2, p3, p4, p5, p6, p7,
+		).
+		Order("updated_at DESC").
+		Find(&backlinks).Error
+
+	return backlinks, err
+}

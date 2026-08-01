@@ -66,6 +66,11 @@ export const wikiAPI = {
     return res.data || [];
   },
 
+  async getBacklinks(slug: string): Promise<Page[]> {
+    const res = await fetchJSON<{ data: Page[] }>(`/pages/${slug}/backlinks`);
+    return res.data || [];
+  },
+
   async searchPages(query: string): Promise<Page[]> {
     const res = await fetchJSON<{ results: Page[] }>(`/search?q=${encodeURIComponent(query)}`);
     return res.results || [];
