@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import type { Page, Attachment } from '../types';
-import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image, Link2, Lock, Globe } from 'lucide-react';
+import type { Page, Attachment, User } from '../types';
+import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Paperclip, Download, Copy, Check, File, Image, Link2, Lock, Globe } from 'lucide-react';
 import { wikiAPI } from '../api';
 
 import { transformWikiLinks, slugify } from '../utils/wikiLink';
@@ -11,10 +11,10 @@ import { transformWikiLinks, slugify } from '../utils/wikiLink';
 interface PageViewProps {
   page: Page;
   pages?: Page[];
+  currentUser?: User | null;
   onEdit: () => void;
   onViewHistory: () => void;
   onDelete: () => void;
-  onOpenApiModal: () => void;
   onSelectPage?: (slug: string) => void;
   onCreateMissingPage?: (title: string) => void;
   onRefreshPage?: () => void;
@@ -23,10 +23,10 @@ interface PageViewProps {
 export const PageView: React.FC<PageViewProps> = ({
   page,
   pages = [],
+  currentUser,
   onEdit,
   onViewHistory,
   onDelete,
-  onOpenApiModal,
   onSelectPage,
   onCreateMissingPage,
   onRefreshPage,
@@ -73,7 +73,7 @@ export const PageView: React.FC<PageViewProps> = ({
   };
 
   const handleDeleteAttachment = async (id: number) => {
-    if (!window.confirm('Är du säker på att du vill radera denna bilaga?')) return;
+    if (!window.confirm('Är du säker på att du vill ta bort denna bilaga?')) return;
     try {
       await wikiAPI.deleteAttachment(id);
       if (onRefreshPage) onRefreshPage();
@@ -144,21 +144,21 @@ export const PageView: React.FC<PageViewProps> = ({
 
           {/* Action Bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button className="btn btn-secondary" onClick={onEdit} title="Redigera denna wiki-sida">
-              <Edit3 size={16} />
-              <span>Redigera</span>
-            </button>
+            {currentUser && (
+              <button className="btn btn-secondary" onClick={onEdit} title="Redigera denna wiki-sida">
+                <Edit3 size={16} />
+                <span>Redigera</span>
+              </button>
+            )}
             <button className="btn btn-secondary" onClick={onViewHistory} title="Visa ändringshistorik">
               <History size={16} />
               <span>Historik</span>
             </button>
-            <button className="btn btn-secondary" onClick={onOpenApiModal} title="Se API JSON för denna sida">
-              <Code size={16} />
-              <span>API JSON</span>
-            </button>
-            <button className="btn btn-danger" onClick={onDelete} title="Radera sida">
-              <Trash2 size={16} />
-            </button>
+            {currentUser && (
+              <button className="btn btn-danger" onClick={onDelete} title="Radera sida">
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </div>
 
