@@ -70,9 +70,13 @@ export function App() {
       setPages(fetchedPages);
       setTags(fetchedTags);
 
-      // Default select first page if none active
-      if (fetchedPages.length > 0 && !activeSlug) {
-        setActiveSlug(fetchedPages[0].slug);
+      if (fetchedPages.length > 0) {
+        if (!activeSlug || !fetchedPages.some((p) => p.slug === activeSlug)) {
+          setActiveSlug(fetchedPages[0].slug);
+        }
+      } else {
+        setActiveSlug(null);
+        setActivePage(null);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Kunde inte ansluta till servern.');
@@ -93,6 +97,7 @@ export function App() {
       const pageData = await wikiAPI.getPage(slug);
       setActivePage(pageData);
     } catch (err: any) {
+      setActivePage(null);
       setErrorMsg(err.message || 'Kunde inte hämta sidan.');
     } finally {
       setIsLoading(false);
@@ -164,6 +169,10 @@ export function App() {
   const handleLogout = async () => {
     await wikiAPI.logout();
     setCurrentUser(null);
+    setActiveSlug(null);
+    setActivePage(null);
+    setViewMode('view');
+    await loadSidebarData();
   };
 
   return (
@@ -282,7 +291,10 @@ export function App() {
       {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
-          onSuccess={(user) => setCurrentUser(user)}
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            loadSidebarData();
+          }}
         />
       )}
 
