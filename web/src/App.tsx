@@ -251,10 +251,10 @@ export function App() {
             <PageView
               page={activePage}
               pages={pages}
+              currentUser={currentUser}
               onEdit={() => setViewMode('edit')}
               onViewHistory={handleViewHistory}
               onDelete={handleDeletePage}
-              onOpenApiModal={() => setShowApiModal(true)}
               onSelectPage={(slug) => {
                 setActiveSlug(slug);
                 setViewMode('view');
