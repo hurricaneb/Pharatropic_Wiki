@@ -24,6 +24,12 @@ func NewWikiHandler(repo *repository.WikiRepository) *WikiHandler {
 	return &WikiHandler{repo: repo}
 }
 
+func (h *WikiHandler) isAuthed(c *gin.Context) bool {
+	_, existsUser := c.Get("user")
+	_, existsUsername := c.Get("username")
+	return existsUser || existsUsername
+}
+
 // GetHealth returns system status
 func (h *WikiHandler) GetHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
@@ -38,7 +44,7 @@ func (h *WikiHandler) ListPages(c *gin.Context) {
 	search := c.Query("search")
 	tag := c.Query("tag")
 
-	pages, err := h.repo.ListPages(search, tag)
+	pages, err := h.repo.ListPages(search, tag, h.isAuthed(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -51,8 +57,12 @@ func (h *WikiHandler) ListPages(c *gin.Context) {
 func (h *WikiHandler) GetPage(c *gin.Context) {
 	slug := c.Param("slug")
 
-	page, err := h.repo.GetPageBySlug(slug)
+	page, err := h.repo.GetPageBySlug(slug, h.isAuthed(c))
 	if err != nil {
+		if err.Error() == "denna sida är privat och kräver inloggning" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusNotFound, gin.H{"error": "Sidan hittades inte"})
 		return
 	}
@@ -120,6 +130,15 @@ func (h *WikiHandler) DeletePage(c *gin.Context) {
 func (h *WikiHandler) GetRevisions(c *gin.Context) {
 	slug := c.Param("slug")
 
+	if _, err := h.repo.GetPageBySlug(slug, h.isAuthed(c)); err != nil {
+		if err.Error() == "denna sida är privat och kräver inloggning" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Sidan hittades inte"})
+		return
+	}
+
 	revisions, err := h.repo.GetRevisions(slug)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -137,7 +156,7 @@ func (h *WikiHandler) SearchPages(c *gin.Context) {
 		return
 	}
 
-	pages, err := h.repo.SearchPages(q)
+	pages, err := h.repo.SearchPages(q, h.isAuthed(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -215,6 +234,15 @@ func (h *WikiHandler) UploadAttachment(c *gin.Context) {
 func (h *WikiHandler) GetAttachments(c *gin.Context) {
 	slug := c.Param("slug")
 
+	if _, err := h.repo.GetPageBySlug(slug, h.isAuthed(c)); err != nil {
+		if err.Error() == "denna sida är privat och kräver inloggning" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Sidan hittades inte"})
+		return
+	}
+
 	attachments, err := h.repo.GetAttachments(slug)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -255,7 +283,7 @@ func (h *WikiHandler) DeleteAttachment(c *gin.Context) {
 func (h *WikiHandler) GetBacklinks(c *gin.Context) {
 	slug := c.Param("slug")
 
-	backlinks, err := h.repo.GetBacklinks(slug)
+	backlinks, err := h.repo.GetBacklinks(slug, h.isAuthed(c))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return

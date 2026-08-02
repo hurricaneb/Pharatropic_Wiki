@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Page, Tag } from '../types';
-import { FileText, Tag as TagIcon, Eye } from 'lucide-react';
+import { FileText, Tag as TagIcon, Eye, Lock } from 'lucide-react';
 
 interface SidebarProps {
   pages: Page[];
@@ -61,7 +61,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     className="sidebar-item"
                   >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {!p.is_public && (
+                        <span title="Privat sida (kräver inloggning)" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <Lock size={12} color="var(--accent)" />
+                        </span>
+                      )}
                       {p.title}
                     </span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-subtle)' }}>

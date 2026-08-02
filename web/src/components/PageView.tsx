@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, Attachment } from '../types';
-import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image, Link2 } from 'lucide-react';
+import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image, Link2, Lock, Globe } from 'lucide-react';
 import { wikiAPI } from '../api';
 
 import { transformWikiLinks, slugify } from '../utils/wikiLink';
@@ -96,9 +96,27 @@ export const PageView: React.FC<PageViewProps> = ({
       <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fff', marginBottom: '8px', letterSpacing: '-0.02em' }}>
-              {page.title}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', margin: 0 }}>
+                {page.title}
+              </h1>
+
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: page.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(99, 102, 241, 0.25)',
+                color: page.is_public ? '#6ee7b7' : '#a5b4fc',
+                border: `1px solid ${page.is_public ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)'}`,
+              }}>
+                {page.is_public ? <Globe size={13} /> : <Lock size={13} />}
+                {page.is_public ? 'Publik' : 'Privat'}
+              </span>
+            </div>
 
             {page.summary && (
               <p style={{ fontSize: '1.05rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
