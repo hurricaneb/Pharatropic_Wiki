@@ -55,12 +55,18 @@ func (r *WikiRepository) CreatePage(req *models.CreatePageRequest, author string
 		comment = "Sida skapad"
 	}
 
+	isPublic := false
+	if req.IsPublic != nil {
+		isPublic = *req.IsPublic
+	}
+
 	page := models.Page{
-		Title:   req.Title,
-		Slug:    pageSlug,
-		Summary: req.Summary,
-		Content: req.Content,
-		Tags:    tags,
+		Title:    req.Title,
+		Slug:     pageSlug,
+		Summary:  req.Summary,
+		Content:  req.Content,
+		IsPublic: isPublic,
+		Tags:     tags,
 	}
 
 	if err := r.db.Create(&page).Error; err != nil {
@@ -80,7 +86,7 @@ func (r *WikiRepository) CreatePage(req *models.CreatePageRequest, author string
 	return &page, nil
 }
 
-func (r *WikiRepository) GetPageBySlug(slug string) (*models.Page, error) {
+func (r *WikiRepository) GetPageBySlug(slug string, isAuthed bool) (*models.Page, error) {
 	var page models.Page
 	err := r.db.Preload("Tags").Preload("Attachments").Preload("Revisions", func(db *gorm.DB) *gorm.DB {
 		return db.Order("revisions.created_at DESC")
@@ -89,15 +95,23 @@ func (r *WikiRepository) GetPageBySlug(slug string) (*models.Page, error) {
 		return nil, err
 	}
 
+	if !isAuthed && !page.IsPublic {
+		return nil, errors.New("denna sida är privat och kräver inloggning")
+	}
+
 	// Increment view count asynchronously/in background
 	r.db.Model(&page).UpdateColumn("views", gorm.Expr("views + ?", 1))
 
 	return &page, nil
 }
 
-func (r *WikiRepository) ListPages(search string, tag string) ([]models.Page, error) {
+func (r *WikiRepository) ListPages(search string, tag string, isAuthed bool) ([]models.Page, error) {
 	var pages []models.Page
 	query := r.db.Preload("Tags").Order("updated_at DESC")
+
+	if !isAuthed {
+		query = query.Where("is_public = ?", true)
+	}
 
 	if search != "" {
 		searchPattern := "%" + strings.ToLower(search) + "%"
@@ -131,6 +145,9 @@ func (r *WikiRepository) UpdatePage(pageSlug string, req *models.UpdatePageReque
 
 	page.Content = req.Content
 	page.Summary = req.Summary
+	if req.IsPublic != nil {
+		page.IsPublic = *req.IsPublic
+	}
 	page.UpdatedAt = time.Now()
 
 	// Update tags if provided
@@ -190,8 +207,8 @@ func (r *WikiRepository) GetRevisions(slug string) ([]models.Revision, error) {
 	return revisions, err
 }
 
-func (r *WikiRepository) SearchPages(q string) ([]models.Page, error) {
-	return r.ListPages(q, "")
+func (r *WikiRepository) SearchPages(q string, isAuthed bool) ([]models.Page, error) {
+	return r.ListPages(q, "", isAuthed)
 }
 
 func (r *WikiRepository) ListTags() ([]models.Tag, error) {
@@ -245,7 +262,7 @@ func (r *WikiRepository) DeleteAttachment(id uint) error {
 	return r.db.Delete(&models.Attachment{}, id).Error
 }
 
-func (r *WikiRepository) GetBacklinks(targetSlug string) ([]models.Page, error) {
+func (r *WikiRepository) GetBacklinks(targetSlug string, isAuthed bool) ([]models.Page, error) {
 	var targetPage models.Page
 	if err := r.db.Where("slug = ?", targetSlug).First(&targetPage).Error; err != nil {
 		return nil, errors.New("sidan hittades inte")
@@ -262,15 +279,19 @@ func (r *WikiRepository) GetBacklinks(targetSlug string) ([]models.Page, error) 
 	p6 := "%/wiki/" + lowerSlug + "%"
 	p7 := "%#wikilink:" + lowerSlug + "%"
 
-	var backlinks []models.Page
-	err := r.db.Preload("Tags").
+	query := r.db.Preload("Tags").
 		Where("id != ?", targetPage.ID).
 		Where(
 			"LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ? OR LOWER(content) LIKE ?",
 			p1, p2, p3, p4, p5, p6, p7,
-		).
-		Order("updated_at DESC").
-		Find(&backlinks).Error
+		)
+
+	if !isAuthed {
+		query = query.Where("is_public = ?", true)
+	}
+
+	var backlinks []models.Page
+	err := query.Order("updated_at DESC").Find(&backlinks).Error
 
 	return backlinks, err
 }

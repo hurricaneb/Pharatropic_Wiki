@@ -72,11 +72,12 @@ func seedDatabase(db *gorm.DB) {
 	db.FirstOrCreate(&guideTag, models.Tag{Slug: "guide"})
 
 	page := models.Page{
-		Title:   welcomeTitle,
-		Slug:    welcomeSlug,
-		Summary: "Välkomstsida för Pharatropic Wiki (PTC Wiki)",
-		Content: welcomeContent,
-		Tags:    []models.Tag{startTag, guideTag},
+		Title:    welcomeTitle,
+		Slug:     welcomeSlug,
+		Summary:  "Välkomstsida för Pharatropic Wiki (PTC Wiki)",
+		Content:  welcomeContent,
+		IsPublic: true,
+		Tags:     []models.Tag{startTag, guideTag},
 	}
 
 	if err := db.Create(&page).Error; err == nil {
