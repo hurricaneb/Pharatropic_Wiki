@@ -1,70 +1,105 @@
 # Pharatropic Wiki (PTC Wiki)
 
-En snabb, högpresterande och utökbar Wiki-applikation skriven i **Go** med ett komplett **REST API** och ett modernt **React UI**.
-
-## 🚀 Funktioner
-
-- ⚡ **Go (Gin + GORM):** Högpresterande backend API med låg minnesanvändning.
-- 🗄️ **SQLite / PostgreSQL:** Typsäker databashantering med automatisk schemamigrering via GORM.
-- 📝 **Markdown-stöd:** Inbyggd Markdown-redigerare med live preview.
-- 📜 **Full RevisionHistorik:** Varje redigering sparar en revision. Möjlighet att granska tidigare versioner och jämföra diffar.
-- 🔍 **Fulltextsökning:** Snabbsökning i alla wikisidor.
-- 🔑 **API-nycklar & REST API (`/api/v1`):** Programmatisk åtkomst till alla wikifunktioner.
-- 🎨 **Modern Design:** Mörkt/ljust läge, responsiv layout och stilren typografi.
+En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett komplett **REST API**, automatisk databasmigrering och ett helintegrerat **React UI**.
 
 ---
 
-## 📡 REST API-dokumentation (`/api/v1`)
+## 🚀 Funktioner
 
+- ⚡ **Allt-i-ett-server (Go + React):** Go-servern serverar både REST API:t (`/api/v1`) och det förbyggda React-gränssnittet direkt på samma port (`http://localhost:8080`).
+- 🔒 **Privata & Publika Sidor (`IsPublic`):** Nya sidor skapas som privata (kräver inloggning) som standard. Välj publika sidor för öppen läsning utan konto.
+- 👤 **Användarhantering (Admin) & Inloggning:** JWT-baserad inloggning. Endast administratörer kan skapa användarkonton. Varje sidändring registreras med inloggad författare.
+- 🔑 **Mina API-nycklar:** Skapa personliga API-nycklar (`ptc_key_...`) med anpassade utgångsdatum (7 dagar, 30 dagar, 90 dagar, 1 år eller Aldrig) och omedelbar återkallning.
+- 🔗 **Interna Wiki-länkar:** Skriv `[[Sidtitel]]` eller `[[Sidtitel|Visningstext]]` för att automatiskt skapa interna länkar. Klick på en saknad sida öppnar skaparläget direkt.
+- 🔄 **Backlinks ("Sidor som länkar hit"):** Automatisk spårning och visning av alla inkommande länkar till varje wiki-sida.
+- 📜 **Versionshistorik & 1-Klick Återställning (Rollback):** Varje redigering sparar en komplett revision. Återställ till tidigare versioner med ett klick.
+- 📁 **Filbilagor & Bildhantering:** Ladda upp bilder och filer direkt till sidor med automatiska Markdown-snippets (`![bild](/uploads/...)`).
+- 🔍 **Fulltextsökning & Taggar:** Snabbsökning i titlar och innehåll med tagg-filtrering.
+
+---
+
+## 📡 REST API Slutpunkter (`/api/v1`)
+
+### 🌐 Öppna Slutpunkter (Publika)
 | Metod | Slutpunkt | Beskrivning |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | Kontrollera API-status |
-| `GET` | `/api/v1/pages` | Lista alla wikisidor (`?search=...` & `?tag=...`) |
+| `POST` | `/api/v1/auth/login` | Logga in och erhåll JWT Bearer-token |
+| `GET` | `/api/v1/pages` | Lista alla publika wikisidor (kräver inloggning för privata) |
 | `GET` | `/api/v1/pages/:slug` | Hämta en specifik sida via slug |
-| `POST` | `/api/v1/pages` | Skapa ny wikisida |
-| `PUT` | `/api/v1/pages/:slug` | Uppdatera en sida (skapar ny revision) |
-| `DELETE` | `/api/v1/pages/:slug` | Radera en sida |
 | `GET` | `/api/v1/pages/:slug/revisions` | Hämta ändringshistorik för en sida |
-| `GET` | `/api/v1/search?q=...` | Sök i alla sidor och titlar |
+| `GET` | `/api/v1/pages/:slug/backlinks` | Hämta alla sidor som länkar till denna sida |
+| `GET` | `/api/v1/search?q=...` | Sök i wikisidor och titlar |
+| `GET` | `/api/v1/tags` | Lista alla taggar och kategorier |
 
-### Exempel på API-anrop
+### 🔒 Behörighetskrävande Slutpunkter (Inloggad eller API-nyckel)
+| Metod | Slutpunkt | Beskrivning |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/auth/me` | Hämta profil för inloggad användare |
+| `POST` | `/api/v1/pages` | Skapa ny wikisida (standard `is_public: false`) |
+| `PUT` | `/api/v1/pages/:slug` | Uppdatera en sida (skapar ny revision) |
+| `DELETE` | `/api/v1/pages/:slug` | Radera en wiki-sida |
+| `POST` | `/api/v1/pages/:slug/attachments` | Ladda upp filbilaga/bild till sida |
+| `DELETE` | `/api/v1/attachments/:id` | Radera filbilaga |
+| `POST` | `/api/v1/pages/:slug/revert/:id` | Återställ sida till en tidigare revision |
+| `GET` | `/api/v1/user/keys` | Lista dina egna API-nycklar |
+| `POST` | `/api/v1/user/keys` | Skapa ny personlig API-nyckel |
+| `DELETE` | `/api/v1/user/keys/:id` | Återkalla/radera API-nyckel |
 
-```bash
-# Skapa ny sida
-curl -X POST http://localhost:8080/api/v1/pages \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Välkommen till Wikin",
-    "content": "# Välkommen\nDetta är första sidan!",
-    "tags": ["start", "info"]
-  }'
-
-# Hämta sida
-curl http://localhost:8080/api/v1/pages/valkommen-till-wikin
-```
+### 🛡️ Admin Slutpunkter (Kräver Admin-roll)
+| Metod | Slutpunkt | Beskrivning |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/users` | Lista alla registrerade användarkonton |
+| `POST` | `/api/v1/admin/users` | Skapa ett nytt användarkonto |
 
 ---
 
 ## 🛠️ Installation & Körning
 
 ### Förutsättningar
-- Go 1.22+
-- Node.js v20+
+- **Go** v1.22+
+- **Node.js** v20+
 
-### Starta Backend (Go)
-```bash
-# Ladda ner beroenden och starta servern
-go run main.go
-```
-Backend snurrar på `http://localhost:8080`.
+### Enkel Start (Servera allt via Go)
+Bygg React-gränssnittet och starta hela applikationen med ett enda kommandoradsanrop:
 
-### Starta Frontend (React)
 ```bash
-cd web
-npm install
-npm run dev
+# 1. Bygg frontend-paketet och starta Go-servern
+(cd web && npm run build) && go run main.go
 ```
-Frontend öppnas på `http://localhost:5173`.
+
+Besök därefter **`http://localhost:8080`** i webbläsaren!
+
+- **Standard Admin-konto:** `admin` / `admin` (skapas automatiskt vid första start).
+
+---
+
+### 💻 Utvecklingsläge (Separata servrar med Live Reload)
+
+Om du vill utveckla frontend med snabb live-laddning (HMR):
+
+1. **Starta Go Backend API (Terminal 1):**
+   ```bash
+   go run main.go
+   ```
+   API:t snurrar på `http://localhost:8080/api/v1`.
+
+2. **Starta React Frontend (Terminal 2):**
+   ```bash
+   cd web
+   npm install
+   npm run dev
+   ```
+   Utvecklingsservern öppnas på `http://localhost:5173`.
+
+---
+
+## 🧪 Köra Tester
+
+```bash
+# Kör alla automatiska backend- & integrationstester
+go test -v ./...
+```
 
 ---
 
