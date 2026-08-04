@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Terminal } from 'lucide-react';
+import { X, Copy, Check, Terminal, Key } from 'lucide-react';
 import type { Page } from '../types';
 
 interface ApiModalProps {
@@ -15,46 +15,46 @@ export const ApiModal: React.FC<ApiModalProps> = ({ page, onClose }) => {
 
   const snippets = [
     {
-      title: 'Hämta alla wikisidor',
+      title: 'Hämta alla publika wikisidor (Öppen åtkomst)',
       method: 'GET',
       endpoint: '/api/v1/pages',
-      cmd: `curl -H "X-API-Key: wiki-secret-api-key" ${apiHost}/api/v1/pages`,
+      cmd: `curl ${apiHost}/api/v1/pages`,
     },
     {
       title: `Hämta specifik sida (${currentSlug})`,
       method: 'GET',
       endpoint: `/api/v1/pages/${currentSlug}`,
-      cmd: `curl -H "X-API-Key: wiki-secret-api-key" ${apiHost}/api/v1/pages/${currentSlug}`,
+      cmd: `curl -H "X-API-Key: ptc_key_din_api_nyckel" ${apiHost}/api/v1/pages/${currentSlug}`,
     },
     {
       title: 'Skapa ny wikisida via API',
       method: 'POST',
       endpoint: '/api/v1/pages',
-      cmd: `curl -X POST ${apiHost}/api/v1/pages \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: wiki-secret-api-key" \\\n  -d '{\n    "title": "Ny Sida Från API",\n    "content": "# Rubrik\\nDetta skapades automatiskt via REST API:t.",\n    "tags": ["api", "automation"]\n  }'`,
+      cmd: `curl -X POST ${apiHost}/api/v1/pages \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: ptc_key_din_api_nyckel" \\\n  -d '{\n    "title": "Ny Sida Från API",\n    "content": "# Rubrik\\nDetta skapades automatiskt via REST API:t.",\n    "is_public": false,\n    "tags": ["api", "automation"]\n  }'`,
     },
     {
       title: `Hämta ändringshistorik för sida`,
       method: 'GET',
       endpoint: `/api/v1/pages/${currentSlug}/revisions`,
-      cmd: `curl -H "X-API-Key: wiki-secret-api-key" ${apiHost}/api/v1/pages/${currentSlug}/revisions`,
+      cmd: `curl -H "X-API-Key: ptc_key_din_api_nyckel" ${apiHost}/api/v1/pages/${currentSlug}/revisions`,
     },
     {
       title: 'Ladda upp fil / bild till sida',
       method: 'POST',
       endpoint: `/api/v1/pages/${currentSlug}/attachments`,
-      cmd: `curl -X POST ${apiHost}/api/v1/pages/${currentSlug}/attachments \\\n  -H "X-API-Key: wiki-secret-api-key" \\\n  -F "file=@/sökväg/till/bild.png"`,
+      cmd: `curl -X POST ${apiHost}/api/v1/pages/${currentSlug}/attachments \\\n  -H "X-API-Key: ptc_key_din_api_nyckel" \\\n  -F "file=@/sökväg/till/bild.png"`,
     },
     {
       title: 'Återställ sida till en tidigare revision',
       method: 'POST',
       endpoint: `/api/v1/pages/${currentSlug}/revert/1`,
-      cmd: `curl -X POST ${apiHost}/api/v1/pages/${currentSlug}/revert/1 \\\n  -H "X-API-Key: wiki-secret-api-key"`,
+      cmd: `curl -X POST ${apiHost}/api/v1/pages/${currentSlug}/revert/1 \\\n  -H "X-API-Key: ptc_key_din_api_nyckel"`,
     },
     {
       title: 'Sök i alla sidor',
       method: 'GET',
       endpoint: '/api/v1/search?q=start',
-      cmd: `curl -H "X-API-Key: wiki-secret-api-key" "${apiHost}/api/v1/search?q=start"`,
+      cmd: `curl -H "X-API-Key: ptc_key_din_api_nyckel" "${apiHost}/api/v1/search?q=start"`,
     },
   ];
 
@@ -95,6 +95,13 @@ export const ApiModal: React.FC<ApiModalProps> = ({ page, onClose }) => {
           <button className="btn btn-secondary" onClick={onClose} style={{ padding: '6px' }}>
             <X size={18} />
           </button>
+        </div>
+
+        <div style={{ padding: '12px 16px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: 'var(--radius-md)', marginBottom: '20px', fontSize: '0.85rem', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Key size={18} />
+          <span>
+            För anrop som kräver behörighet, skapa en personlig API-nyckel under <strong>Mina API-nycklar</strong> i menyn och skicka den som <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px' }}>X-API-Key: ptc_key_...</code> eller Bearer token.
+          </span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

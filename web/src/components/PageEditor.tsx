@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, CreatePageInput, UpdatePageInput } from '../types';
-import { Save, X, Eye, Edit3, MessageSquare, Paperclip } from 'lucide-react';
+import { Save, X, Eye, Edit3, MessageSquare, Paperclip, Lock, Globe } from 'lucide-react';
 import { wikiAPI } from '../api';
 import { transformWikiLinks } from '../utils/wikiLink';
 
@@ -23,6 +23,9 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   const [title, setTitle] = useState(initialPage?.title || initialTitle || '');
   const [summary, setSummary] = useState(initialPage?.summary || '');
   const [content, setContent] = useState(initialPage?.content || '');
+  const [isPublic, setIsPublic] = useState<boolean>(
+    initialPage ? initialPage.is_public : false
+  );
   const [tagsInput, setTagsInput] = useState(
     initialPage?.tags ? initialPage.tags.map((t) => t.name).join(', ') : ''
   );
@@ -49,7 +52,6 @@ export const PageEditor: React.FC<PageEditorProps> = ({
 
     try {
       const result = await wikiAPI.uploadAttachment(initialPage.slug, file);
-      // Append markdown snippet to content
       const snippet = `\n\n${result.markdown}\n`;
       setContent((prev) => prev + snippet);
     } catch (err: any) {
@@ -82,6 +84,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         title: title.trim(),
         summary: summary.trim(),
         content,
+        is_public: isPublic,
         tags,
         comment: comment.trim() || (initialPage ? 'Sida uppdaterad' : 'Ny sida skapad'),
       });
@@ -146,6 +149,80 @@ export const PageEditor: React.FC<PageEditorProps> = ({
             onChange={(e) => setTitle(e.target.value)}
             required
           />
+        </div>
+
+        {/* Page Visibility Choice */}
+        <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
+            Sidans synlighet
+          </label>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <label
+              onClick={() => setIsPublic(false)}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-md)',
+                background: !isPublic ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${!isPublic ? 'var(--primary)' : 'rgba(255,255,255,0.1)'}`,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <input
+                type="radio"
+                name="visibility"
+                checked={!isPublic}
+                onChange={() => setIsPublic(false)}
+                style={{ accentColor: 'var(--primary)' }}
+              />
+              <Lock size={18} color={!isPublic ? 'var(--primary)' : 'var(--text-muted)'} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: !isPublic ? '#fff' : 'var(--text-muted)' }}>
+                  🔒 Privat sida
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
+                  Kräver inloggning eller API-nyckel för att läsa
+                </div>
+              </div>
+            </label>
+
+            <label
+              onClick={() => setIsPublic(true)}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-md)',
+                background: isPublic ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${isPublic ? 'var(--success)' : 'rgba(255,255,255,0.1)'}`,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <input
+                type="radio"
+                name="visibility"
+                checked={isPublic}
+                onChange={() => setIsPublic(true)}
+                style={{ accentColor: 'var(--success)' }}
+              />
+              <Globe size={18} color={isPublic ? 'var(--success)' : 'var(--text-muted)'} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: isPublic ? '#fff' : 'var(--text-muted)' }}>
+                  🌐 Publik sida
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
+                  Synlig för alla besökare utan inloggning
+                </div>
+              </div>
+            </label>
+          </div>
         </div>
 
         {/* Summary & Tags */}

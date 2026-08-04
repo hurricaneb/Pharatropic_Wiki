@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import type { Page, Attachment } from '../types';
-import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Code, Paperclip, Download, Copy, Check, File, Image, Link2 } from 'lucide-react';
+import type { Page, Attachment, User } from '../types';
+import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Paperclip, Download, Copy, Check, File, Image, Link2, Lock, Globe } from 'lucide-react';
 import { wikiAPI } from '../api';
 
 import { transformWikiLinks, slugify } from '../utils/wikiLink';
@@ -11,10 +11,10 @@ import { transformWikiLinks, slugify } from '../utils/wikiLink';
 interface PageViewProps {
   page: Page;
   pages?: Page[];
+  currentUser?: User | null;
   onEdit: () => void;
   onViewHistory: () => void;
   onDelete: () => void;
-  onOpenApiModal: () => void;
   onSelectPage?: (slug: string) => void;
   onCreateMissingPage?: (title: string) => void;
   onRefreshPage?: () => void;
@@ -23,10 +23,10 @@ interface PageViewProps {
 export const PageView: React.FC<PageViewProps> = ({
   page,
   pages = [],
+  currentUser,
   onEdit,
   onViewHistory,
   onDelete,
-  onOpenApiModal,
   onSelectPage,
   onCreateMissingPage,
   onRefreshPage,
@@ -73,7 +73,7 @@ export const PageView: React.FC<PageViewProps> = ({
   };
 
   const handleDeleteAttachment = async (id: number) => {
-    if (!window.confirm('Är du säker på att du vill radera denna bilaga?')) return;
+    if (!window.confirm('Är du säker på att du vill ta bort denna bilaga?')) return;
     try {
       await wikiAPI.deleteAttachment(id);
       if (onRefreshPage) onRefreshPage();
@@ -96,9 +96,27 @@ export const PageView: React.FC<PageViewProps> = ({
       <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fff', marginBottom: '8px', letterSpacing: '-0.02em' }}>
-              {page.title}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', margin: 0 }}>
+                {page.title}
+              </h1>
+
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: page.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(99, 102, 241, 0.25)',
+                color: page.is_public ? '#6ee7b7' : '#a5b4fc',
+                border: `1px solid ${page.is_public ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)'}`,
+              }}>
+                {page.is_public ? <Globe size={13} /> : <Lock size={13} />}
+                {page.is_public ? 'Publik' : 'Privat'}
+              </span>
+            </div>
 
             {page.summary && (
               <p style={{ fontSize: '1.05rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
@@ -126,21 +144,21 @@ export const PageView: React.FC<PageViewProps> = ({
 
           {/* Action Bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button className="btn btn-secondary" onClick={onEdit} title="Redigera denna wiki-sida">
-              <Edit3 size={16} />
-              <span>Redigera</span>
-            </button>
+            {currentUser && (
+              <button className="btn btn-secondary" onClick={onEdit} title="Redigera denna wiki-sida">
+                <Edit3 size={16} />
+                <span>Redigera</span>
+              </button>
+            )}
             <button className="btn btn-secondary" onClick={onViewHistory} title="Visa ändringshistorik">
               <History size={16} />
               <span>Historik</span>
             </button>
-            <button className="btn btn-secondary" onClick={onOpenApiModal} title="Se API JSON för denna sida">
-              <Code size={16} />
-              <span>API JSON</span>
-            </button>
-            <button className="btn btn-danger" onClick={onDelete} title="Radera sida">
-              <Trash2 size={16} />
-            </button>
+            {currentUser && (
+              <button className="btn btn-danger" onClick={onDelete} title="Radera sida">
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </div>
 

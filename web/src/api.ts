@@ -7,7 +7,7 @@ function getAuthHeader(): Record<string, string> {
   if (token) {
     return { Authorization: `Bearer ${token}` };
   }
-  return { 'X-API-Key': 'wiki-secret-api-key' };
+  return {};
 }
 
 async function fetchJSON<T>(endpoint: string, options?: RequestInit): Promise<T> {

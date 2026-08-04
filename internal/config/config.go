@@ -5,8 +5,8 @@ import (
 )
 
 type Config struct {
-	Port   string
-	DBPath string
+	Port         string
+	DBPath       string
 	MasterAPIKey string
 }
 
@@ -22,9 +22,6 @@ func LoadConfig() *Config {
 	}
 
 	masterAPIKey := os.Getenv("API_KEY")
-	if masterAPIKey == "" {
-		masterAPIKey = "wiki-secret-api-key"
-	}
 
 	return &Config{
 		Port:         port,

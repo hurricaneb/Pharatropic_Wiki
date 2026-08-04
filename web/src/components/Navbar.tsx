@@ -84,10 +84,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>REST API</span>
           </button>
           
-          <button className="btn btn-primary" onClick={onNewPage} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
-            <Plus size={16} />
-            <span>Ny Sida</span>
-          </button>
+          {currentUser && (
+            <button className="btn btn-primary" onClick={onNewPage} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+              <Plus size={16} />
+              <span>Ny Sida</span>
+            </button>
+          )}
 
           {/* User Auth Section */}
           {currentUser ? (
