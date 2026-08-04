@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"wiki/internal/config"
 	"wiki/internal/database"
 	"wiki/internal/handlers"
+	"wiki/internal/mcp"
 	"wiki/internal/middleware"
 	"wiki/internal/repository"
 
@@ -17,6 +19,9 @@ import (
 )
 
 func main() {
+	mcpFlag := flag.Bool("mcp", false, "Start in MCP (Model Context Protocol) Stdio mode")
+	flag.Parse()
+
 	cfg := config.LoadConfig()
 
 	// Initialize Database
@@ -27,6 +32,15 @@ func main() {
 
 	wikiRepo := repository.NewWikiRepository(db)
 	wikiHandler := handlers.NewWikiHandler(wikiRepo)
+	mcpServer := mcp.NewServer(wikiRepo)
+
+	// If launched in Stdio MCP mode
+	if *mcpFlag {
+		if err := mcpServer.ServeStdio(); err != nil {
+			log.Fatalf("MCP Server Error: %v", err)
+		}
+		return
+	}
 
 	router := gin.Default()
 
@@ -45,6 +59,9 @@ func main() {
 	v1.Use(middleware.AuthMiddleware(wikiRepo, cfg.MasterAPIKey))
 	{
 		v1.GET("/health", wikiHandler.GetHealth)
+
+		// MCP Server Endpoint (Active by default over SSE / HTTP)
+		v1.Any("/mcp", mcpServer.GinHandler())
 
 		// Authentication
 		v1.POST("/auth/login", wikiHandler.AuthLogin)
@@ -94,6 +111,7 @@ func main() {
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("🚀 Wiki Server startad på http://localhost%s", addr)
 	log.Printf("📡 REST API tillgängligt på http://localhost%s/api/v1", addr)
+	log.Printf("🤖 MCP Server tillgänglig på http://localhost%s/api/v1/mcp", addr)
 
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Fel vid start av server: %v", err)
