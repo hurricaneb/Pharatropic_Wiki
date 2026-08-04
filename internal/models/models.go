@@ -26,6 +26,7 @@ type Page struct {
 	Title       string         `gorm:"not null" json:"title"`
 	Summary     string         `json:"summary"`
 	Content     string         `gorm:"type:text;not null" json:"content"`
+	IsPublic    bool           `gorm:"default:false;index" json:"is_public"`
 	Views       int64          `gorm:"default:0" json:"views"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
@@ -80,20 +81,22 @@ type ApiKey struct {
 
 // CreatePageRequest DTO for API page creation
 type CreatePageRequest struct {
-	Title   string   `json:"title" binding:"required"`
-	Content string   `json:"content" binding:"required"`
-	Summary string   `json:"summary"`
-	Comment string   `json:"comment"`
-	Tags    []string `json:"tags"`
+	Title    string   `json:"title" binding:"required"`
+	Content  string   `json:"content" binding:"required"`
+	Summary  string   `json:"summary"`
+	Comment  string   `json:"comment"`
+	IsPublic *bool    `json:"is_public"`
+	Tags     []string `json:"tags"`
 }
 
 // UpdatePageRequest DTO for API page update
 type UpdatePageRequest struct {
-	Title   string   `json:"title"`
-	Content string   `json:"content" binding:"required"`
-	Summary string   `json:"summary"`
-	Comment string   `json:"comment"`
-	Tags    []string `json:"tags"`
+	Title    string   `json:"title"`
+	Content  string   `json:"content" binding:"required"`
+	Summary  string   `json:"summary"`
+	Comment  string   `json:"comment"`
+	IsPublic *bool    `json:"is_public"`
+	Tags     []string `json:"tags"`
 }
 
 // Auth DTOs

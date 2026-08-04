@@ -51,6 +51,7 @@ export interface Page {
   title: string;
   summary: string;
   content: string;
+  is_public: boolean;
   views: number;
   created_at: string;
   updated_at: string;
@@ -64,6 +65,7 @@ export interface CreatePageInput {
   content: string;
   summary?: string;
   comment?: string;
+  is_public?: boolean;
   tags?: string[];
 }
 
@@ -72,5 +74,6 @@ export interface UpdatePageInput {
   content: string;
   summary?: string;
   comment?: string;
+  is_public?: boolean;
   tags?: string[];
 }

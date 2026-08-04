@@ -93,12 +93,14 @@ func TestCreateAndFetchPage(t *testing.T) {
 	router, cleanup := setupTestRouter(t)
 	defer cleanup()
 
+	isPublic := true
 	// 1. Create page
 	createPayload := models.CreatePageRequest{
-		Title:   "Test Sida",
-		Content: "# Test Innehåll\nDetta är en testtext.",
-		Summary: "Test sammanfattning",
-		Tags:    []string{"test", "demo"},
+		Title:    "Test Sida",
+		Content:  "# Test Innehåll\nDetta är en testtext.",
+		Summary:  "Test sammanfattning",
+		IsPublic: &isPublic,
+		Tags:     []string{"test", "demo"},
 	}
 	bodyBytes, _ := json.Marshal(createPayload)
 
@@ -153,10 +155,12 @@ func TestBacklinksEndpoint(t *testing.T) {
 	router, cleanup := setupTestRouter(t)
 	defer cleanup()
 
+	isPublic := true
 	// 1. Create target page
 	p1 := models.CreatePageRequest{
-		Title:   "Välkommen till Wikin",
-		Content: "Välkomstsida content",
+		Title:    "Välkommen till Wikin",
+		Content:  "Välkomstsida content",
+		IsPublic: &isPublic,
 	}
 	b1, _ := json.Marshal(p1)
 	w1 := httptest.NewRecorder()
@@ -167,8 +171,9 @@ func TestBacklinksEndpoint(t *testing.T) {
 
 	// 2. Create linking page "Test" that contains [[Välkommen till Wikin]]
 	p2 := models.CreatePageRequest{
-		Title:   "Test",
-		Content: "Länkar till [[Välkommen till Wikin]] här!",
+		Title:    "Test",
+		Content:  "Länkar till [[Välkommen till Wikin]] här!",
+		IsPublic: &isPublic,
 	}
 	b2, _ := json.Marshal(p2)
 	w2 := httptest.NewRecorder()
@@ -203,10 +208,12 @@ func TestRevertRevisionEndpoint(t *testing.T) {
 	router, cleanup := setupTestRouter(t)
 	defer cleanup()
 
+	isPublic := true
 	// 1. Create page
 	p1 := models.CreatePageRequest{
-		Title:   "Rollback Test",
-		Content: "Original Version",
+		Title:    "Rollback Test",
+		Content:  "Original Version",
+		IsPublic: &isPublic,
 	}
 	b1, _ := json.Marshal(p1)
 	w1 := httptest.NewRecorder()
@@ -230,12 +237,16 @@ func TestRevertRevisionEndpoint(t *testing.T) {
 	// 3. Fetch revisions to get initial revision ID
 	wRev := httptest.NewRecorder()
 	rRev, _ := http.NewRequest("GET", "/api/v1/pages/rollback-test/revisions", nil)
+	rRev.Header.Set("X-API-Key", "master-secret")
 	router.ServeHTTP(wRev, rRev)
 
 	var revsRes struct {
 		Data []models.Revision `json:"data"`
 	}
 	json.Unmarshal(wRev.Body.Bytes(), &revsRes)
+	if len(revsRes.Data) == 0 {
+		t.Fatalf("Expected revisions for rollback-test, got none")
+	}
 	initialRevID := revsRes.Data[len(revsRes.Data)-1].ID
 
 	// 4. Revert back to initial revision
@@ -399,5 +410,106 @@ func TestUserAuthAndApiKeys(t *testing.T) {
 
 	if wFail.Code != http.StatusUnauthorized {
 		t.Fatalf("Expected 401 Unauthorized for revoked API key, got %d", wFail.Code)
+	}
+}
+
+func TestPrivateAndPublicPageVisibility(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	isPublicFalse := false
+	isPublicTrue := true
+
+	// 1. Create a private page (default when is_public is omitted or false)
+	privReq := models.CreatePageRequest{
+		Title:    "Hemlig Sida",
+		Content:  "Detta innehåll är privat",
+		IsPublic: &isPublicFalse,
+	}
+	bPriv, _ := json.Marshal(privReq)
+	wPriv := httptest.NewRecorder()
+	rPriv, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(bPriv))
+	rPriv.Header.Set("Content-Type", "application/json")
+	rPriv.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wPriv, rPriv)
+
+	if wPriv.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for private page, got %d: %s", wPriv.Code, wPriv.Body.String())
+	}
+
+	// 2. Create a public page (is_public = true)
+	pubReq := models.CreatePageRequest{
+		Title:    "Offentlig Guide",
+		Content:  "Detta innehåll är publikt för alla",
+		IsPublic: &isPublicTrue,
+	}
+	bPub, _ := json.Marshal(pubReq)
+	wPub := httptest.NewRecorder()
+	rPub, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(bPub))
+	rPub.Header.Set("Content-Type", "application/json")
+	rPub.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wPub, rPub)
+
+	if wPub.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for public page, got %d: %s", wPub.Code, wPub.Body.String())
+	}
+
+	// 3. Unauthenticated GET /api/v1/pages -> Should only return public pages!
+	wUnauthList := httptest.NewRecorder()
+	rUnauthList, _ := http.NewRequest("GET", "/api/v1/pages", nil)
+	router.ServeHTTP(wUnauthList, rUnauthList)
+
+	var unauthListRes struct {
+		Data []models.Page `json:"data"`
+	}
+	json.Unmarshal(wUnauthList.Body.Bytes(), &unauthListRes)
+
+	// Default welcome page (is_public: true) + Offentlig Guide (is_public: true) = 2 pages
+	for _, p := range unauthListRes.Data {
+		if !p.IsPublic {
+			t.Fatalf("Unauthenticated list returned private page '%s'", p.Title)
+		}
+	}
+
+	// 4. Unauthenticated GET /api/v1/pages/hemlig-sida -> Should return 401 Unauthorized
+	wUnauthGet := httptest.NewRecorder()
+	rUnauthGet, _ := http.NewRequest("GET", "/api/v1/pages/hemlig-sida", nil)
+	router.ServeHTTP(wUnauthGet, rUnauthGet)
+
+	if wUnauthGet.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 Unauthorized for private page access without auth, got %d: %s", wUnauthGet.Code, wUnauthGet.Body.String())
+	}
+
+	// 5. Authenticated GET /api/v1/pages/hemlig-sida -> Should return 200 OK
+	wAuthGet := httptest.NewRecorder()
+	rAuthGet, _ := http.NewRequest("GET", "/api/v1/pages/hemlig-sida", nil)
+	rAuthGet.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wAuthGet, rAuthGet)
+
+	if wAuthGet.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for authenticated private page access, got %d: %s", wAuthGet.Code, wAuthGet.Body.String())
+	}
+
+	// 6. Update public page without specifying is_public (omitted) -> Must maintain is_public: true
+	upReq := models.UpdatePageRequest{
+		Content: "Uppdaterad guide text utan att ändra synlighet",
+	}
+	bUp, _ := json.Marshal(upReq)
+	wUp := httptest.NewRecorder()
+	rUp, _ := http.NewRequest("PUT", "/api/v1/pages/offentlig-guide", bytes.NewBuffer(bUp))
+	rUp.Header.Set("Content-Type", "application/json")
+	rUp.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wUp, rUp)
+
+	if wUp.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for update, got %d", wUp.Code)
+	}
+
+	var upRes struct {
+		Data models.Page `json:"data"`
+	}
+	json.Unmarshal(wUp.Body.Bytes(), &upRes)
+	if !upRes.Data.IsPublic {
+		t.Fatalf("Expected page to remain public after update with omitted is_public")
 	}
 }
