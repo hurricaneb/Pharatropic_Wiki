@@ -156,11 +156,11 @@ export const PageEditor: React.FC<PageEditorProps> = ({
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
             Sidans synlighet
           </label>
-          <div style={{ display: 'flex', gap: '16px' }}>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             <label
               onClick={() => setIsPublic(false)}
               style={{
-                flex: 1,
+                flex: '1 1 200px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
@@ -193,7 +193,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
             <label
               onClick={() => setIsPublic(true)}
               style={{
-                flex: 1,
+                flex: '1 1 200px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
@@ -226,7 +226,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         </div>
 
         {/* Summary & Tags */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
               Kort Sammanfattning

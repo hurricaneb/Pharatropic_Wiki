@@ -30,8 +30,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
 }) => {
   return (
-    <header className="glass-panel" style={{ borderRadius: 0, borderTop: 0, borderLeft: 0, borderRight: 0, padding: '14px 28px' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+    <header className="glass-panel navbar-container" style={{ borderRadius: 0, borderTop: 0, borderLeft: 0, borderRight: 0, padding: '12px 20px', width: '100%' }}>
+      <div className="navbar-inner" style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', width: '100%' }}>
         {/* Brand / Logo */}
         <div 
           onClick={onHomeClick} 
@@ -39,25 +39,25 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <div style={{ 
             background: 'linear-gradient(135deg, #6366f1, #06b6d4)', 
-            padding: '10px', 
-            borderRadius: '12px', 
+            padding: '8px', 
+            borderRadius: '10px', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)'
           }}>
-            <BookOpen size={24} color="#fff" />
+            <BookOpen size={22} color="#fff" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '1.3rem', fontWeight: 800, background: 'linear-gradient(90deg, #fff, #a5b4fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.2 }}>
+              <h1 style={{ fontSize: '1.25rem', fontWeight: 800, background: 'linear-gradient(90deg, #fff, #a5b4fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.2 }}>
                 Pharatropic Wiki
               </h1>
               <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.4)' }}>
                 PTC Wiki
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', backgroundColor: healthOk ? 'var(--success)' : 'var(--danger)' }}></span>
               Go REST API + React UI
             </div>
@@ -65,7 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Search Bar */}
-        <div style={{ flex: 1, maxWidth: '440px', position: 'relative' }}>
+        <div className="navbar-search" style={{ flex: '1 1 220px', maxWidth: '440px', minWidth: '180px', position: 'relative' }}>
           <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
@@ -78,10 +78,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Action Buttons & User Menu */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={onOpenApiModal} title="Visa REST API dokumentation" style={{ padding: '6px 12px', fontSize: '0.82rem' }}>
             <Terminal size={15} />
-            <span>REST API</span>
+            <span className="btn-label-mobile-hide">REST API</span>
           </button>
           
           {currentUser && (
@@ -93,9 +93,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User Auth Section */}
           {currentUser ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px', borderLeft: '1px solid var(--border-color)', paddingLeft: '14px' }}>
+            <div className="user-auth-section" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px', borderLeft: '1px solid var(--border-color)', paddingLeft: '10px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>
+                <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>
                   {currentUser.username[0].toUpperCase()}
                 </div>
                 <span>{currentUser.username}</span>
@@ -108,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 style={{ padding: '6px 10px', fontSize: '0.8rem' }}
               >
                 <Key size={14} color="var(--accent)" />
-                <span>Mina API-nycklar</span>
+                <span className="btn-label-mobile-hide">API-nycklar</span>
               </button>
 
               {currentUser.role === 'admin' && (
@@ -119,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   style={{ padding: '6px 10px', fontSize: '0.8rem' }}
                 >
                   <Users size={14} color="var(--primary)" />
-                  <span>Användare</span>
+                  <span className="btn-label-mobile-hide">Användare</span>
                 </button>
               )}
 
@@ -136,7 +136,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               className="btn btn-secondary"
               onClick={onOpenLogin}
-              style={{ marginLeft: '6px', padding: '6px 14px', fontSize: '0.85rem' }}
+              style={{ marginLeft: '4px', padding: '6px 14px', fontSize: '0.85rem' }}
             >
               <LogIn size={15} />
               <span>Logga in</span>

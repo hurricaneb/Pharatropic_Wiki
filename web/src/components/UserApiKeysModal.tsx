@@ -85,7 +85,7 @@ export const UserApiKeysModal: React.FC<UserApiKeysModalProps> = ({ onClose }) =
       zIndex: 1000,
       padding: '20px',
     }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '640px', padding: '28px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div className="glass-panel modal-glass-container" style={{ width: '100%', maxWidth: '640px', padding: '28px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
         <button
           onClick={onClose}
           style={{ position: 'absolute', right: '18px', top: '18px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
