@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Copy, Check, Terminal, Key } from 'lucide-react';
 import type { Page } from '../types';
+import { getApiHost } from '../api';
 
 interface ApiModalProps {
   page?: Page | null;
@@ -10,7 +11,7 @@ interface ApiModalProps {
 export const ApiModal: React.FC<ApiModalProps> = ({ page, onClose }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const apiHost = window.location.hostname === 'localhost' ? 'http://localhost:8080' : window.location.origin;
+  const apiHost = getApiHost();
   const currentSlug = page ? page.slug : 'valkommen-till-wikin';
 
   const snippets = [

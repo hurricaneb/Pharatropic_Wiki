@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, CreatePageInput, UpdatePageInput } from '../types';
 import { Save, X, Eye, Edit3, MessageSquare, Paperclip, Lock, Globe } from 'lucide-react';
-import { wikiAPI } from '../api';
+import { wikiAPI, getApiHost } from '../api';
 import { transformWikiLinks } from '../utils/wikiLink';
 
 interface PageEditorProps {
@@ -317,7 +317,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
                   urlTransform={(url) => {
-                    const apiHost = window.location.hostname === 'localhost' && window.location.port !== '8080' ? 'http://localhost:8080' : '';
+                    const apiHost = getApiHost();
                     let finalUrl = url.startsWith('/uploads/') ? `${apiHost}${url}` : url;
                     return finalUrl.replace(/ /g, '%20');
                   }}
