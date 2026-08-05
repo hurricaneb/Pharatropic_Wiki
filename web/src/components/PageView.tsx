@@ -94,52 +94,28 @@ export const PageView: React.FC<PageViewProps> = ({
     <article className="glass-panel" style={{ padding: '36px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header & Meta */}
       <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
-              <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', margin: 0 }}>
-                {page.title}
-              </h1>
+        {/* Top Row: Title + Visibility Badge (Left) & Action Buttons (Right) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: page.summary ? '10px' : '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', margin: 0 }}>
+              {page.title}
+            </h1>
 
-              <span style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                padding: '4px 10px',
-                borderRadius: '6px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                background: page.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(99, 102, 241, 0.25)',
-                color: page.is_public ? '#6ee7b7' : '#a5b4fc',
-                border: `1px solid ${page.is_public ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)'}`,
-              }}>
-                {page.is_public ? <Globe size={13} /> : <Lock size={13} />}
-                {page.is_public ? 'Publik' : 'Privat'}
-              </span>
-            </div>
-
-            {page.summary && (
-              <p style={{ fontSize: '1.05rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                {page.summary}
-              </p>
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '0.85rem', color: 'var(--text-subtle)', flexWrap: 'wrap' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Calendar size={15} color="var(--primary)" />
-                Uppdaterad {formattedDate}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Eye size={15} color="var(--accent)" />
-                {page.views} visningar
-              </span>
-              {page.revisions && page.revisions.length > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--primary)' }} onClick={onViewHistory}>
-                  <History size={15} />
-                  {page.revisions.length} revisioner
-                </span>
-              )}
-            </div>
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              padding: '4px 10px',
+              borderRadius: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: page.is_public ? 'rgba(16, 185, 129, 0.2)' : 'rgba(99, 102, 241, 0.25)',
+              color: page.is_public ? '#6ee7b7' : '#a5b4fc',
+              border: `1px solid ${page.is_public ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)'}`,
+            }}>
+              {page.is_public ? <Globe size={13} /> : <Lock size={13} />}
+              {page.is_public ? 'Publik' : 'Privat'}
+            </span>
           </div>
 
           {/* Action Bar */}
@@ -160,6 +136,31 @@ export const PageView: React.FC<PageViewProps> = ({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Summary */}
+        {page.summary && (
+          <p style={{ fontSize: '1.05rem', color: 'var(--text-muted)', marginBottom: '14px', marginTop: 0 }}>
+            {page.summary}
+          </p>
+        )}
+
+        {/* Metadata Row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '0.85rem', color: 'var(--text-subtle)', flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Calendar size={15} color="var(--primary)" />
+            Uppdaterad {formattedDate}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Eye size={15} color="var(--accent)" />
+            {page.views} visningar
+          </span>
+          {page.revisions && page.revisions.length > 0 && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--primary)' }} onClick={onViewHistory}>
+              <History size={15} />
+              {page.revisions.length} revisioner
+            </span>
+          )}
         </div>
 
         {/* Tags */}
