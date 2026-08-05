@@ -25,7 +25,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Initialize Database
-	db, err := database.InitDB(cfg.DBPath)
+	db, err := database.InitDB(cfg)
 	if err != nil {
 		log.Fatalf("Misslyckades att initiera databasen: %v", err)
 	}

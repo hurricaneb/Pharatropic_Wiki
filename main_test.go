@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"wiki/internal/config"
 	"wiki/internal/database"
 	"wiki/internal/handlers"
 	"wiki/internal/middleware"
@@ -23,7 +24,8 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 	dbFile := "test_wiki.db"
 	os.Remove(dbFile)
 
-	db, err := database.InitDB(dbFile)
+	cfg := &config.Config{DBDriver: "sqlite", DBPath: dbFile}
+	db, err := database.InitDB(cfg)
 	if err != nil {
 		t.Fatalf("Failed to init test db: %v", err)
 	}
