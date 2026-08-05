@@ -80,7 +80,7 @@ export const ApiModal: React.FC<ApiModalProps> = ({ page, onClose }) => {
       zIndex: 1000,
       padding: '20px',
     }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '780px', maxHeight: '90vh', overflowY: 'auto', padding: '28px', border: '1px solid var(--border-glow)' }}>
+      <div className="glass-panel modal-glass-container" style={{ width: '100%', maxWidth: '780px', maxHeight: '90vh', overflowY: 'auto', padding: '28px', border: '1px solid var(--border-glow)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Terminal size={24} color="var(--primary)" />
