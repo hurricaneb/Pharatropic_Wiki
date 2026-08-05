@@ -429,7 +429,11 @@ func (h *WikiHandler) UserCreateApiKey(c *gin.Context) {
 	}
 
 	user := userVal.(*models.User)
-	apiKey, rawSecret, err := h.repo.CreateUserApiKey(user.ID, req.Name, req.Expires)
+	expiresOpt := req.Expires
+	if expiresOpt == "" {
+		expiresOpt = req.ExpiresAt
+	}
+	apiKey, rawSecret, err := h.repo.CreateUserApiKey(user.ID, req.Name, expiresOpt)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
