@@ -1,12 +1,13 @@
 # Pharatropic Wiki (PTC Wiki)
 
-En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett komplett **REST API**, inbyggd **MCP Server (Model Context Protocol)**, automatisk databasmigrering och ett helintegrerat **React UI**.
+En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett komplett **REST API**, inbyggd **MCP Server (Model Context Protocol)**, automatisk databasmigrering (**SQLite / PostgreSQL**) och ett helintegrerat **React UI**.
 
 ---
 
 ## 🚀 Funktioner
 
 - ⚡ **Allt-i-ett-server (Go + React):** Go-servern serverar både REST API:t (`/api/v1`), MCP-servern (`/api/v1/mcp`) och det förbyggda React-gränssnittet direkt på samma port (`http://localhost:8080`).
+- 🐳 **Docker & TrueNAS SCALE Redo:** Klar för self-hosting med Docker Compose och PostgreSQL 16. Inga portkrockar!
 - 🤖 **MCP Server (Model Context Protocol):** Inbyggt stöd för AI-assistenter (Antigravity CLI, Claude Desktop, Cursor, VS Code) att läsa, söka, skapa och uppdatera wikisidor helt nativt.
 - 🔒 **Privata & Publika Sidor (`IsPublic`):** Nya sidor skapas som privata (kräver inloggning) som standard. Välj publika sidor för öppen läsning utan konto.
 - 👤 **Användarhantering (Admin) & Inloggning:** JWT-baserad inloggning. Endast administratörer kan skapa användarkonton. Varje sidändring registreras med inloggad författare.
@@ -16,6 +17,25 @@ En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett kom
 - 📜 **Versionshistorik & 1-Klick Återställning (Rollback):** Varje redigering sparar en komplett revision. Återställ till tidigare versioner med ett klick.
 - 📁 **Filbilagor & Bildhantering:** Ladda upp bilder och filer direkt till sidor med automatiska Markdown-snippets (`![bild](/uploads/...)`).
 - 🔍 **Fulltextsökning & Taggar:** Snabbsökning i titlar och innehåll med tagg-filtrering.
+
+---
+
+## 🐳 Self-Hosting med Docker Compose & PostgreSQL (TrueNAS SCALE / Portainer)
+
+Wikin levereras med en färdig `docker-compose.yml` anpassad för **TrueNAS SCALE**, Portainer och hemmaservrar.
+
+### 🚀 Starta hela stacken med ett kommandoradsanrop:
+
+```bash
+# Starta Wiki + PostgreSQL 16 med persisterad databas & bilagelagring
+docker compose up -d
+```
+
+Besök därefter **`http://<din-server-ip>:30085`** i webbläsaren!
+
+- **Webbport på servern:** `30085` (Anpassad för TrueNAS SCALE standardintervall `30000-39999`, helt konfigurerbar via `PORT_HOST` i `.env`).
+- **PostgreSQL Databas:** Kör helt internt i Docker-nätverket (`db:5432`). Ingen port exponeras mot servern, vilket förhindrar krockar med befintliga databaser eller appar.
+- **Volymer:** Sparar automatiskt PostgreSQL-data i `postgres_data` och uppladdade filer i `wiki_uploads`.
 
 ---
 
@@ -86,43 +106,18 @@ MCP-servern är aktiverad automatiskt på `http://localhost:8080/api/v1/mcp` vid
 
 ---
 
-## 🛠️ Installation & Körning
+## 🛠️ Lokal Utveckling (Utan Docker)
 
 ### Förutsättningar
 - **Go** v1.22+
 - **Node.js** v20+
 
-### Enkel Start (Servera allt via Go)
-Bygg React-gränssnittet och starta hela applikationen med ett enda kommandoradsanrop:
-
+### Enkel Start (SQLite)
 ```bash
-# 1. Bygg frontend-paketet och starta Go-servern
+# Bygg frontend och starta Go-servern med SQLite
 (cd web && npm run build) && go run main.go
 ```
-
-Besök därefter **`http://localhost:8080`** i webbläsaren!
-
-- **Standard Admin-konto:** `admin` / `admin` (skapas automatiskt vid första start).
-
----
-
-### 💻 Utvecklingsläge (Separata servrar med Live Reload)
-
-Om du vill utveckla frontend med snabb live-laddning (HMR):
-
-1. **Starta Go Backend API (Terminal 1):**
-   ```bash
-   go run main.go
-   ```
-   API:t snurrar på `http://localhost:8080/api/v1`.
-
-2. **Starta React Frontend (Terminal 2):**
-   ```bash
-   cd web
-   npm install
-   npm run dev
-   ```
-   Utvecklingsservern öppnas på `http://localhost:5173`.
+Besök **`http://localhost:8080`**. Standard Admin: `admin` / `admin`.
 
 ---
 
