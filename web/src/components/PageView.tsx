@@ -161,7 +161,7 @@ export const PageView: React.FC<PageViewProps> = ({
 
         {/* Tags */}
         {page.tags && page.tags.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
             <TagIcon size={14} color="var(--text-subtle)" />
             {page.tags.map((t) => (
               <span key={t.id} className="tag-badge">
