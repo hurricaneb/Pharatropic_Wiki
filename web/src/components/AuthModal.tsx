@@ -42,7 +42,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
       zIndex: 1000,
       padding: '20px',
     }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '28px', position: 'relative' }}>
+      <div className="glass-panel modal-glass-container" style={{ width: '100%', maxWidth: '420px', padding: '28px', position: 'relative' }}>
         <button
           onClick={onClose}
           style={{ position: 'absolute', right: '18px', top: '18px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
