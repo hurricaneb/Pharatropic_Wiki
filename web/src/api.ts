@@ -1,6 +1,21 @@
 import type { Page, CreatePageInput, UpdatePageInput, Revision, Tag, Attachment, User, UserApiKey } from './types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+export const getApiHost = (): string => {
+  if (typeof window === 'undefined') return 'http://localhost:8080';
+  // If Vite dev server on port 5173, point to backend on port 8080
+  if (window.location.port === '5173') {
+    return 'http://localhost:8080';
+  }
+  // Production / single binary server: use current browser origin
+  return window.location.origin;
+};
+
+export const getApiBase = (): string => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  return `${getApiHost()}/api/v1`;
+};
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('ptc_auth_token');
@@ -11,7 +26,7 @@ function getAuthHeader(): Record<string, string> {
 }
 
 async function fetchJSON<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${getApiBase()}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeader(),
@@ -61,11 +76,16 @@ export const wikiAPI = {
     }
   },
 
-  // Admin API
-  async adminCreateUser(input: { username: string; email: string; password: string; role?: string }): Promise<User> {
+  async adminCreateUser(data: { username: string; email?: string; password: string; role: string } | string, passwordArg?: string, roleArg?: string): Promise<User> {
+    let body: any;
+    if (typeof data === 'object') {
+      body = data;
+    } else {
+      body = { username: data, password: passwordArg, role: roleArg };
+    }
     const res = await fetchJSON<{ data: User }>('/admin/users', {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify(body),
     });
     return res.data;
   },
@@ -75,18 +95,25 @@ export const wikiAPI = {
     return res.data || [];
   },
 
-  // User API Keys
   async listUserApiKeys(): Promise<UserApiKey[]> {
     const res = await fetchJSON<{ data: UserApiKey[] }>('/user/keys');
     return res.data || [];
   },
 
-  async createUserApiKey(name: string, expires: string): Promise<{ data: UserApiKey; key: string }> {
-    const res = await fetchJSON<{ data: UserApiKey; key: string }>('/user/keys', {
+  async userListApiKeys(): Promise<UserApiKey[]> {
+    return this.listUserApiKeys();
+  },
+
+  async createUserApiKey(name: string, expiresAt?: string): Promise<{ key: string; api_key?: string; data: UserApiKey }> {
+    const res = await fetchJSON<{ api_key: string; data: UserApiKey }>('/user/keys', {
       method: 'POST',
-      body: JSON.stringify({ name, expires }),
+      body: JSON.stringify({ name, expires_at: expiresAt }),
     });
-    return res;
+    return { key: res.api_key, api_key: res.api_key, data: res.data };
+  },
+
+  async userCreateApiKey(name: string, expiresAt?: string): Promise<{ key: string; api_key?: string; data: UserApiKey }> {
+    return this.createUserApiKey(name, expiresAt);
   },
 
   async revokeUserApiKey(id: number): Promise<void> {
@@ -95,13 +122,18 @@ export const wikiAPI = {
     });
   },
 
-  // Page API
+  async userRevokeApiKey(id: number): Promise<void> {
+    return this.revokeUserApiKey(id);
+  },
+
+  // Wiki Pages API
   async listPages(search?: string, tag?: string): Promise<Page[]> {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (tag) params.append('tag', tag);
-    const queryStr = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetchJSON<{ data: Page[] }>(`/pages${queryStr}`);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    const res = await fetchJSON<{ data: Page[] }>(`/pages${queryString}`);
     return res.data || [];
   },
 
@@ -163,7 +195,7 @@ export const wikiAPI = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE}/pages/${slug}/attachments`, {
+    const response = await fetch(`${getApiBase()}/pages/${slug}/attachments`, {
       method: 'POST',
       headers: {
         ...getAuthHeader(),

@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, Attachment, User } from '../types';
 import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Paperclip, Download, Copy, Check, File, Image, Link2, Lock, Globe } from 'lucide-react';
-import { wikiAPI } from '../api';
+import { wikiAPI, getApiHost } from '../api';
 
 import { transformWikiLinks, slugify } from '../utils/wikiLink';
 
@@ -51,15 +51,11 @@ export const PageView: React.FC<PageViewProps> = ({
   });
 
   const customUrlTransform = (url: string) => {
-    const apiHost = window.location.hostname === 'localhost' && window.location.port !== '8080'
-      ? 'http://localhost:8080'
-      : '';
-
+    const apiHost = getApiHost();
     let finalUrl = url;
     if (url.startsWith('/uploads/')) {
       finalUrl = `${apiHost}${url}`;
     }
-
     return finalUrl.replace(/ /g, '%20');
   };
 
@@ -88,7 +84,7 @@ export const PageView: React.FC<PageViewProps> = ({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const apiHost = window.location.hostname === 'localhost' ? 'http://localhost:8080' : window.location.origin;
+  const apiHost = getApiHost();
 
   return (
     <article className="glass-panel" style={{ padding: '36px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
