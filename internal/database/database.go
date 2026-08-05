@@ -1,19 +1,42 @@
 package database
 
 import (
+	"fmt"
 	"log"
 
+	"wiki/internal/config"
 	"wiki/internal/models"
 
 	"github.com/gosimple/slug"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-func InitDB(dbPath string) (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+func InitDB(cfg *config.Config) (*gorm.DB, error) {
+	var dialector gorm.Dialector
+
+	if cfg.DBDriver == "postgres" || cfg.PostgresHost != "" || cfg.DatabaseURL != "" {
+		dsn := cfg.DatabaseURL
+		if dsn == "" {
+			dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+				cfg.PostgresHost,
+				cfg.PostgresUser,
+				cfg.PostgresPassword,
+				cfg.PostgresDB,
+				cfg.PostgresPort,
+			)
+		}
+		log.Printf("🐘 Ansluter till PostgreSQL databas (%s)...", cfg.PostgresHost)
+		dialector = postgres.Open(dsn)
+	} else {
+		log.Printf("🗄️ Ansluter till SQLite databas (%s)...", cfg.DBPath)
+		dialector = sqlite.Open(cfg.DBPath)
+	}
+
+	db, err := gorm.Open(dialector, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {

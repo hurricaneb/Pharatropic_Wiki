@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"wiki/internal/config"
 	"wiki/internal/database"
 	"wiki/internal/repository"
 )
@@ -13,7 +14,8 @@ func setupTestRepo(t *testing.T) (*repository.WikiRepository, func()) {
 	dbFile := "test_mcp_wiki.db"
 	os.Remove(dbFile)
 
-	db, err := database.InitDB(dbFile)
+	cfg := &config.Config{DBDriver: "sqlite", DBPath: dbFile}
+	db, err := database.InitDB(cfg)
 	if err != nil {
 		t.Fatalf("Failed to init test db: %v", err)
 	}

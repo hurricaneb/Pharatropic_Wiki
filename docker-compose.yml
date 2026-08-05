@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  wiki:
+    build: .
+    container_name: pharatropic_wiki
+    restart: unless-stopped
+    ports:
+      - "${PORT_HOST:-30085}:8080"
+    environment:
+      - PORT=8080
+      - DB_DRIVER=postgres
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-wiki}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-wikipassword}
+      - POSTGRES_DB=${POSTGRES_DB:-pharatropic_wiki}
+      - API_KEY=${API_KEY:-}
+    volumes:
+      - wiki_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: pharatropic_wiki_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-wiki}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-wikipassword}
+      - POSTGRES_DB=${POSTGRES_DB:-pharatropic_wiki}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wiki} -d ${POSTGRES_DB:-pharatropic_wiki}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  wiki_uploads:
