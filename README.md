@@ -1,12 +1,13 @@
 # Pharatropic Wiki (PTC Wiki)
 
-En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett komplett **REST API**, automatisk databasmigrering och ett helintegrerat **React UI**.
+En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett komplett **REST API**, inbyggd **MCP Server (Model Context Protocol)**, automatisk databasmigrering och ett helintegrerat **React UI**.
 
 ---
 
 ## 🚀 Funktioner
 
-- ⚡ **Allt-i-ett-server (Go + React):** Go-servern serverar både REST API:t (`/api/v1`) och det förbyggda React-gränssnittet direkt på samma port (`http://localhost:8080`).
+- ⚡ **Allt-i-ett-server (Go + React):** Go-servern serverar både REST API:t (`/api/v1`), MCP-servern (`/api/v1/mcp`) och det förbyggda React-gränssnittet direkt på samma port (`http://localhost:8080`).
+- 🤖 **MCP Server (Model Context Protocol):** Inbyggt stöd för AI-assistenter (Antigravity CLI, Claude Desktop, Cursor, VS Code) att läsa, söka, skapa och uppdatera wikisidor helt nativt.
 - 🔒 **Privata & Publika Sidor (`IsPublic`):** Nya sidor skapas som privata (kräver inloggning) som standard. Välj publika sidor för öppen läsning utan konto.
 - 👤 **Användarhantering (Admin) & Inloggning:** JWT-baserad inloggning. Endast administratörer kan skapa användarkonton. Varje sidändring registreras med inloggad författare.
 - 🔑 **Mina API-nycklar:** Skapa personliga API-nycklar (`ptc_key_...`) med anpassade utgångsdatum (7 dagar, 30 dagar, 90 dagar, 1 år eller Aldrig) och omedelbar återkallning.
@@ -18,12 +19,43 @@ En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett kom
 
 ---
 
+## 🤖 MCP (Model Context Protocol) Integration
+
+MCP-servern är aktiverad automatiskt på `http://localhost:8080/api/v1/mcp` vid vanliga `go run main.go`.
+
+### 🛠️ Exponerade MCP-verktyg för AI
+- `list_pages`: Lista alla wikisidor med status, visningar och taggar.
+- `read_page`: Hämta fullständigt innehåll i Markdown för en specifik sida (`slug`).
+- `search_pages`: Sök i titlar och innehåll i hela wikin.
+- `create_page`: Skapa en ny wikisida med titel, innehåll, sammanfattning, taggar och synlighet.
+- `update_page`: Uppdatera en wiki-sida och skapa en ny revision med ändringskommentar.
+- `get_backlinks`: Visa alla sidor som länkar till en specifik sida.
+- `list_tags`: Hämta alla befintliga taggar.
+
+### ⚙️ Exempel på konfiguration för AI-klienter (Antigravity CLI / Cursor / Claude)
+
+```json
+{
+  "mcpServers": {
+    "pharatropic-wiki": {
+      "url": "http://localhost:8080/api/v1/mcp",
+      "headers": {
+        "X-API-Key": "ptc_key_din_personliga_api_nyckel"
+      }
+    }
+  }
+}
+```
+
+---
+
 ## 📡 REST API Slutpunkter (`/api/v1`)
 
 ### 🌐 Öppna Slutpunkter (Publika)
 | Metod | Slutpunkt | Beskrivning |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | Kontrollera API-status |
+| `ANY` | `/api/v1/mcp` | MCP Server (HTTP / SSE Endpoint) |
 | `POST` | `/api/v1/auth/login` | Logga in och erhåll JWT Bearer-token |
 | `GET` | `/api/v1/pages` | Lista alla publika wikisidor (kräver inloggning för privata) |
 | `GET` | `/api/v1/pages/:slug` | Hämta en specifik sida via slug |
