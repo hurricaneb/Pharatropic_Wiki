@@ -113,6 +113,7 @@ type CreateUserRequest struct {
 }
 
 type CreateApiKeyRequest struct {
-	Name    string `json:"name" binding:"required"`
-	Expires string `json:"expires"` // 'never', '7d', '30d', '90d', '1y'
+	Name      string `json:"name" binding:"required"`
+	Expires   string `json:"expires"`    // 'never', '7d', '30d', '90d', '1y'
+	ExpiresAt string `json:"expires_at"` // fallback alias
 }

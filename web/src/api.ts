@@ -104,12 +104,13 @@ export const wikiAPI = {
     return this.listUserApiKeys();
   },
 
-  async createUserApiKey(name: string, expiresAt?: string): Promise<{ key: string; api_key?: string; data: UserApiKey }> {
-    const res = await fetchJSON<{ api_key: string; data: UserApiKey }>('/user/keys', {
+  async createUserApiKey(name: string, expiresAt?: string): Promise<{ key: string; api_key: string; data: UserApiKey }> {
+    const res = await fetchJSON<{ key?: string; api_key?: string; data: UserApiKey }>('/user/keys', {
       method: 'POST',
-      body: JSON.stringify({ name, expires_at: expiresAt }),
+      body: JSON.stringify({ name, expires: expiresAt, expires_at: expiresAt }),
     });
-    return { key: res.api_key, api_key: res.api_key, data: res.data };
+    const secretKey = res.key || res.api_key || '';
+    return { key: secretKey, api_key: secretKey, data: res.data };
   },
 
   async userCreateApiKey(name: string, expiresAt?: string): Promise<{ key: string; api_key?: string; data: UserApiKey }> {
