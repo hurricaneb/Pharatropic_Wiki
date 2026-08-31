@@ -8,15 +8,16 @@ import (
 
 // User represents a system user
 type User struct {
-	ID           uint           `gorm:"primaryKey" json:"id"`
-	Username     string         `gorm:"uniqueIndex;not null" json:"username"`
-	Email        string         `gorm:"uniqueIndex;not null" json:"email"`
-	PasswordHash string         `gorm:"not null" json:"-"`
-	Role         string         `gorm:"default:'user'" json:"role"` // 'admin' or 'user'
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
-	ApiKeys      []ApiKey       `json:"api_keys,omitempty" gorm:"foreignKey:UserID"`
+	ID                 uint           `gorm:"primaryKey" json:"id"`
+	Username           string         `gorm:"uniqueIndex;not null" json:"username"`
+	Email              string         `gorm:"uniqueIndex;not null" json:"email"`
+	PasswordHash       string         `gorm:"not null" json:"-"`
+	Role               string         `gorm:"default:'user'" json:"role"` // 'admin' or 'user'
+	MustChangePassword bool           `gorm:"default:false" json:"must_change_password"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	ApiKeys            []ApiKey       `json:"api_keys,omitempty" gorm:"foreignKey:UserID"`
 }
 
 // Page represents a main wiki page
@@ -103,6 +104,11 @@ type UpdatePageRequest struct {
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required"`
 }
 
 type CreateUserRequest struct {

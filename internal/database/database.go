@@ -62,10 +62,11 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	if userCount == 0 {
 		hash, _ := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
 		adminUser := models.User{
-			Username:     "admin",
-			Email:        "admin@pharatropic.local",
-			PasswordHash: string(hash),
-			Role:         "admin",
+			Username:           "admin",
+			Email:              "admin@pharatropic.local",
+			PasswordHash:       string(hash),
+			Role:               "admin",
+			MustChangePassword: true,
 		}
 		if err := db.Create(&adminUser).Error; err == nil {
 			log.Println("Seeded default admin user (username: admin, password: admin)")

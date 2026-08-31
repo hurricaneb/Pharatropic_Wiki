@@ -70,6 +70,7 @@ func main() {
 		// Authentication
 		v1.POST("/auth/login", wikiHandler.AuthLogin)
 		v1.GET("/auth/me", wikiHandler.AuthMe)
+		v1.PUT("/auth/password", middleware.RequireAuth(), wikiHandler.ChangePassword)
 
 		// Page read operations (Public)
 		v1.GET("/pages", wikiHandler.ListPages)
@@ -82,7 +83,7 @@ func main() {
 
 		// Write operations (Require Auth)
 		authed := v1.Group("")
-		authed.Use(middleware.RequireAuth())
+		authed.Use(middleware.RequireAuth(), middleware.RequirePasswordChanged())
 		{
 			authed.POST("/pages", wikiHandler.CreatePage)
 			authed.PUT("/pages/:slug", wikiHandler.UpdatePage)
@@ -99,7 +100,7 @@ func main() {
 
 		// Admin operations (Require Admin Role)
 		admin := v1.Group("/admin")
-		admin.Use(middleware.RequireAdmin())
+		admin.Use(middleware.RequireAdmin(), middleware.RequirePasswordChanged())
 		{
 			admin.POST("/users", wikiHandler.AdminCreateUser)
 			admin.GET("/users", wikiHandler.AdminListUsers)

@@ -402,6 +402,30 @@ func (r *WikiRepository) ValidateUserPassword(user *models.User, password string
 	return err == nil
 }
 
+func (r *WikiRepository) ChangePassword(userID uint, currentPassword, newPassword string) error {
+	var user models.User
+	if err := r.db.First(&user, userID).Error; err != nil {
+		return errors.New("användaren hittades inte")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return errors.New("felaktigt nuvarande lösenord")
+	}
+
+	if len(newPassword) < 8 {
+		return errors.New("det nya lösenordet måste vara minst 8 tecken")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	user.PasswordHash = string(hash)
+	user.MustChangePassword = false
+	return r.db.Save(&user).Error
+}
+
 // ApiKey repository methods
 
 // hashApiKey returns the SHA-256 hex digest of a raw API key secret. API

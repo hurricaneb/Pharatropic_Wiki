@@ -64,6 +64,13 @@ export const wikiAPI = {
     localStorage.removeItem('ptc_auth_token');
   },
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await fetchJSON('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+  },
+
   async getMe(): Promise<User | null> {
     const token = localStorage.getItem('ptc_auth_token');
     if (!token) return null;
