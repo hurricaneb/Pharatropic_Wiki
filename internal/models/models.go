@@ -71,7 +71,7 @@ type ApiKey struct {
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	UserID     uint       `gorm:"index;not null" json:"user_id"`
 	Name       string     `gorm:"not null" json:"name"`
-	Key        string     `gorm:"uniqueIndex;not null" json:"key"`
+	Key        string     `gorm:"uniqueIndex;not null" json:"-"` // SHA-256 hash of the raw secret, never serialized
 	Prefix     string     `json:"prefix"`
 	Active     bool       `gorm:"default:true" json:"active"`
 	ExpiresAt  *time.Time `json:"expires_at"`

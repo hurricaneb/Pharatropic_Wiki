@@ -2,6 +2,7 @@ package repository
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -403,6 +404,15 @@ func (r *WikiRepository) ValidateUserPassword(user *models.User, password string
 
 // ApiKey repository methods
 
+// hashApiKey returns the SHA-256 hex digest of a raw API key secret. API
+// keys are high-entropy random tokens (not user-chosen passwords), so a
+// fast, unsalted hash is sufficient to prevent plaintext exposure while
+// keeping lookups a simple indexed equality query.
+func hashApiKey(rawKey string) string {
+	sum := sha256.Sum256([]byte(rawKey))
+	return hex.EncodeToString(sum[:])
+}
+
 func (r *WikiRepository) CreateUserApiKey(userID uint, name string, expiresOption string) (*models.ApiKey, string, error) {
 	var user models.User
 	if err := r.db.First(&user, userID).Error; err != nil {
@@ -439,7 +449,7 @@ func (r *WikiRepository) CreateUserApiKey(userID uint, name string, expiresOptio
 	apiKey := models.ApiKey{
 		UserID:    userID,
 		Name:      name,
-		Key:       rawSecret,
+		Key:       hashApiKey(rawSecret),
 		Prefix:    prefix,
 		Active:    true,
 		ExpiresAt: expiresAt,
@@ -464,7 +474,7 @@ func (r *WikiRepository) RevokeUserApiKey(userID uint, keyID uint) error {
 
 func (r *WikiRepository) ValidateApiKey(rawKey string) (*models.User, *models.ApiKey, error) {
 	var apiKey models.ApiKey
-	if err := r.db.Where("key = ? AND active = ?", rawKey, true).First(&apiKey).Error; err != nil {
+	if err := r.db.Where("key = ? AND active = ?", hashApiKey(rawKey), true).First(&apiKey).Error; err != nil {
 		return nil, nil, errors.New("ogiltig eller inaktiv API-nyckel")
 	}
 
