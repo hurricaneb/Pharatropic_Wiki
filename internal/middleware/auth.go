@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -13,7 +16,22 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var JWTSecret = []byte("pharatropic-wiki-secret-jwt-key-2026")
+var JWTSecret []byte
+
+// InitJWTSecret sets the signing key used for JWTs. If secret is empty, a
+// random key is generated for this process run and a warning is logged,
+// since that invalidates every session on restart.
+func InitJWTSecret(secret string) {
+	if secret == "" {
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			log.Fatalf("Kunde inte generera JWT-hemlighet: %v", err)
+		}
+		secret = hex.EncodeToString(b)
+		log.Println("⚠️  JWT_SECRET är inte satt — genererade en tillfällig hemlighet för denna körning. Sätt miljövariabeln JWT_SECRET för att sessioner ska överleva omstarter.")
+	}
+	JWTSecret = []byte(secret)
+}
 
 type Claims struct {
 	UserID   uint   `json:"user_id"`

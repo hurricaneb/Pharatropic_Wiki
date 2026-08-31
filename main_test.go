@@ -25,6 +25,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 	os.Remove(dbFile)
 
 	cfg := &config.Config{DBDriver: "sqlite", DBPath: dbFile}
+	middleware.InitJWTSecret("test-jwt-secret")
 	db, err := database.InitDB(cfg)
 	if err != nil {
 		t.Fatalf("Failed to init test db: %v", err)

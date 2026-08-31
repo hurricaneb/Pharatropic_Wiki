@@ -15,6 +15,10 @@ wiki-server
 *.sqlite
 *.sqlite3
 
+# User-uploaded attachments (may contain private/personal files)
+/uploads/*
+!/uploads/.gitkeep
+
 # Node / React
 node_modules/
 web/node_modules/

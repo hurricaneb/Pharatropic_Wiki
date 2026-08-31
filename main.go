@@ -23,6 +23,7 @@ func main() {
 	flag.Parse()
 
 	cfg := config.LoadConfig()
+	middleware.InitJWTSecret(cfg.JWTSecret)
 
 	// Initialize Database
 	db, err := database.InitDB(cfg)

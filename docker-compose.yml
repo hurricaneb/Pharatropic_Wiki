@@ -16,6 +16,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-wikipassword}
       - POSTGRES_DB=${POSTGRES_DB:-pharatropic_wiki}
       - API_KEY=${API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a long random value}
     volumes:
       - wiki_uploads:/app/uploads
     depends_on:

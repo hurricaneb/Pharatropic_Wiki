@@ -15,6 +15,7 @@ type Config struct {
 	PostgresDB       string
 	DatabaseURL      string
 	MasterAPIKey     string
+	JWTSecret        string
 }
 
 func LoadConfig() *Config {
@@ -44,6 +45,7 @@ func LoadConfig() *Config {
 	databaseURL := os.Getenv("DATABASE_URL")
 
 	masterAPIKey := os.Getenv("API_KEY")
+	jwtSecret := os.Getenv("JWT_SECRET")
 
 	return &Config{
 		Port:             port,
@@ -56,5 +58,6 @@ func LoadConfig() *Config {
 		PostgresDB:       postgresDB,
 		DatabaseURL:      databaseURL,
 		MasterAPIKey:     masterAPIKey,
+		JWTSecret:        jwtSecret,
 	}
 }
