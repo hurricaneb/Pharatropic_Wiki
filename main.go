@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"wiki/internal/config"
 	"wiki/internal/database"
@@ -51,9 +53,10 @@ func main() {
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-API-Key"}
 	router.Use(cors.New(corsConfig))
 
-	// Serve uploaded files statically
+	// Serve uploaded files as forced downloads (never inline), since
+	// uploads may be any file type and must not execute in the app's origin
 	os.MkdirAll("./uploads", 0755)
-	router.Static("/uploads", "./uploads")
+	router.GET("/uploads/:filename", serveUploadFile)
 
 	// API v1 Routes
 	v1 := router.Group("/api/v1")
@@ -117,6 +120,52 @@ func main() {
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Fel vid start av server: %v", err)
 	}
+}
+
+// inlineSafeMimeTypes are content types that browsers cannot turn into
+// script execution, so they may be displayed inline for a good preview
+// experience (images, PDFs). Everything else is forced to download instead,
+// since uploads accept arbitrary file types and something like an uploaded
+// HTML or SVG file rendered inline could run script in the app's own origin
+// and steal the auth token from localStorage.
+var inlineSafeMimeTypes = []string{
+	"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/x-icon",
+	"application/pdf",
+}
+
+func serveUploadFile(c *gin.Context) {
+	filename := filepath.Base(c.Param("filename"))
+	filePath := filepath.Join("./uploads", filename)
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	defer f.Close()
+
+	if info, err := f.Stat(); err != nil || info.IsDir() {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	// Sniff the actual file content rather than trusting the extension or
+	// the Content-Type recorded at upload time, both of which can be spoofed.
+	head := make([]byte, 512)
+	n, _ := f.Read(head)
+	sniffed := http.DetectContentType(head[:n])
+
+	disposition := "attachment"
+	for _, safe := range inlineSafeMimeTypes {
+		if strings.HasPrefix(sniffed, safe) {
+			disposition = "inline"
+			break
+		}
+	}
+
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Disposition", fmt.Sprintf("%s; filename=%q", disposition, filename))
+	c.File(filePath)
 }
 
 func staticFileMiddleware(distPath string) gin.HandlerFunc {
