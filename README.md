@@ -15,8 +15,25 @@ En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett kom
 - 🔗 **Interna Wiki-länkar:** Skriv `[[Sidtitel]]` eller `[[Sidtitel|Visningstext]]` för att automatiskt skapa interna länkar. Klick på en saknad sida öppnar skaparläget direkt.
 - 🔄 **Backlinks ("Sidor som länkar hit"):** Automatisk spårning och visning av alla inkommande länkar till varje wiki-sida.
 - 📜 **Versionshistorik & 1-Klick Återställning (Rollback):** Varje redigering sparar en komplett revision. Återställ till tidigare versioner med ett klick.
-- 📁 **Filbilagor & Bildhantering:** Ladda upp bilder och filer direkt till sidor med automatiska Markdown-snippets (`![bild](/uploads/...)`).
+- 📁 **Filbilagor & Bildhantering:** Ladda upp valfri filtyp direkt till sidor med automatiska Markdown-snippets (`![bild](/uploads/...)`). Bilder och PDF:er visas direkt i webbläsaren; alla andra filtyper laddas ner istället för att köras, som skydd mot skadligt uppladdat innehåll.
 - 🔍 **Fulltextsökning & Taggar:** Snabbsökning i titlar och innehåll med tagg-filtrering.
+
+---
+
+## ⚙️ Miljövariabler
+
+| Variabel | Krävs | Beskrivning |
+| :--- | :--- | :--- |
+| `JWT_SECRET` | Ja (produktion) | Signeringsnyckel för inloggningstokens. Generera med `openssl rand -hex 32`. Saknas den genereras en tillfällig slumpad nyckel vid start, vilket loggar ut alla användare vid varje omstart. |
+| `PORT` | Nej | Port servern lyssnar på. Standard `8080`. |
+| `DB_DRIVER` | Nej | `sqlite` (standard) eller `postgres`. |
+| `DB_PATH` | Nej | Sökväg till SQLite-databasfilen. Standard `wiki.db`. |
+| `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Om `DB_DRIVER=postgres` | PostgreSQL-anslutningsuppgifter. |
+| `API_KEY` | Nej | Valfri master-API-nyckel som ger full åtkomst utan användarkonto. Lämna tom för att bara använda personliga API-nycklar. |
+
+Se `.env.example` för en komplett mall.
+
+> ⚠️ Byt lösenordet för standard-adminkontot (`admin` / `admin`) direkt efter första start.
 
 ---
 
@@ -27,6 +44,9 @@ Wikin levereras med en färdig `docker-compose.yml` anpassad för **TrueNAS SCAL
 ### 🚀 Starta hela stacken med ett kommandoradsanrop:
 
 ```bash
+# Sätt en JWT-signeringsnyckel (krävs, se Miljövariabler ovan)
+echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+
 # Starta Wiki + PostgreSQL 16 med persisterad databas & bilagelagring
 docker compose up -d
 ```
@@ -115,7 +135,7 @@ MCP-servern är aktiverad automatiskt på `http://localhost:8080/api/v1/mcp` vid
 ### Enkel Start (SQLite)
 ```bash
 # Bygg frontend och starta Go-servern med SQLite
-(cd web && npm run build) && go run main.go
+(cd web && npm run build) && JWT_SECRET=$(openssl rand -hex 32) go run main.go
 ```
 Besök **`http://localhost:8080`**. Standard Admin: `admin` / `admin`.
 
