@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"wiki/internal/models"
 	"wiki/internal/repository"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +23,7 @@ func NewServer(repo *repository.WikiRepository) *Server {
 	return &Server{repo: repo}
 }
 
-func (s *Server) HandleRequest(rawReq []byte, author string, isAuthed bool) ([]byte, error) {
+func (s *Server) HandleRequest(rawReq []byte, author string, isAuthed bool, mustChangePassword bool) ([]byte, error) {
 	var req Request
 	if err := json.Unmarshal(rawReq, &req); err != nil {
 		return json.Marshal(Response{
@@ -75,6 +76,17 @@ func (s *Server) HandleRequest(rawReq []byte, author string, isAuthed bool) ([]b
 				Content: []ToolContent{{
 					Type: "text",
 					Text: "Authentication required to create or update wiki pages. Please provide a valid API key via X-API-Key header.",
+				}},
+			}
+			break
+		}
+
+		if (params.Name == "create_page" || params.Name == "update_page") && mustChangePassword {
+			res.Result = CallToolResult{
+				IsError: true,
+				Content: []ToolContent{{
+					Type: "text",
+					Text: "This account must change its password before it can create or update wiki pages. Log in via the web UI to set a new password.",
 				}},
 			}
 			break
@@ -134,7 +146,7 @@ func (s *Server) ServeStdio() error {
 			continue
 		}
 
-		respBytes, err := s.HandleRequest(line, "AI Assistant (Stdio MCP)", true)
+		respBytes, err := s.HandleRequest(line, "AI Assistant (Stdio MCP)", true, false)
 		if err != nil {
 			log.Printf("MCP Error: %v\n", err)
 			continue
@@ -159,9 +171,16 @@ func (s *Server) GinHandler() gin.HandlerFunc {
 		if author == "" {
 			author = "AI Assistant (HTTP MCP)"
 		}
-		_, existsUser := c.Get("user")
+		userVal, existsUser := c.Get("user")
 		_, existsUsername := c.Get("username")
 		isAuthed := existsUser || existsUsername
+
+		mustChangePassword := false
+		if existsUser {
+			if user, ok := userVal.(*models.User); ok {
+				mustChangePassword = user.MustChangePassword
+			}
+		}
 
 		// Support GET for SSE stream initialization
 		if c.Request.Method == http.MethodGet {
@@ -182,7 +201,7 @@ func (s *Server) GinHandler() gin.HandlerFunc {
 			return
 		}
 
-		respBytes, err := s.HandleRequest(bodyBytes, author, isAuthed)
+		respBytes, err := s.HandleRequest(bodyBytes, author, isAuthed, mustChangePassword)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

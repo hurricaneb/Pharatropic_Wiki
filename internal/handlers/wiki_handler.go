@@ -345,6 +345,29 @@ func (h *WikiHandler) AuthLogin(c *gin.Context) {
 	})
 }
 
+// ChangePassword PUT /api/v1/auth/password
+func (h *WikiHandler) ChangePassword(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Du måste vara inloggad som användare"})
+		return
+	}
+
+	var req models.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nuvarande och nytt lösenord krävs"})
+		return
+	}
+
+	user := userVal.(*models.User)
+	if err := h.repo.ChangePassword(user.ID, req.CurrentPassword, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Lösenordet har uppdaterats"})
+}
+
 // AuthMe GET /api/v1/auth/me
 func (h *WikiHandler) AuthMe(c *gin.Context) {
 	userVal, exists := c.Get("user")

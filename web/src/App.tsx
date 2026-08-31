@@ -6,6 +6,7 @@ import { PageEditor } from './components/PageEditor';
 import { RevisionHistory } from './components/RevisionHistory';
 import { ApiModal } from './components/ApiModal';
 import { AuthModal } from './components/AuthModal';
+import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { UserApiKeysModal } from './components/UserApiKeysModal';
 import { AdminUsersModal } from './components/AdminUsersModal';
 import { wikiAPI } from './api';
@@ -307,6 +308,12 @@ export function App() {
       {showAdminUsersModal && (
         <AdminUsersModal
           onClose={() => setShowAdminUsersModal(false)}
+        />
+      )}
+
+      {currentUser?.must_change_password && (
+        <ForcePasswordChangeModal
+          onSuccess={() => setCurrentUser({ ...currentUser, must_change_password: false })}
         />
       )}
     </div>

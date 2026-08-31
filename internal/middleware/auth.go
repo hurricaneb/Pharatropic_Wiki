@@ -89,11 +89,11 @@ func AuthMiddleware(repo *repository.WikiRepository, masterKey string) gin.Handl
 			}
 		}
 
-		// 2. Check X-API-Key or query param
+		// 2. Check X-API-Key header. Deliberately not accepted as a query
+		// parameter: query strings end up in server/proxy access logs,
+		// browser history, and the Referer header, all of which would leak
+		// the secret.
 		apiKey := c.GetHeader("X-API-Key")
-		if apiKey == "" {
-			apiKey = c.Query("api_key")
-		}
 
 		if apiKey != "" {
 			// Check master key
@@ -131,6 +131,26 @@ func RequireAuth() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Du måste vara inloggad för att utföra denna åtgärd"})
 			c.Abort()
 			return
+		}
+		c.Next()
+	}
+}
+
+// RequirePasswordChanged blocks write actions for a user account that still
+// has its initial/temporary password (e.g. the seeded default admin
+// account), forcing a password change via PUT /api/v1/auth/password before
+// anything else can be done with the account.
+func RequirePasswordChanged() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if userVal, exists := c.Get("user"); exists {
+			if user, ok := userVal.(*models.User); ok && user.MustChangePassword {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error":                "Du måste byta lösenord innan du kan fortsätta",
+					"must_change_password": true,
+				})
+				c.Abort()
+				return
+			}
 		}
 		c.Next()
 	}

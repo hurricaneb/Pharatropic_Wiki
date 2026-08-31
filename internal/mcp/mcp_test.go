@@ -40,7 +40,7 @@ func TestMCPInitialize(t *testing.T) {
 	}
 	rawReq, _ := json.Marshal(initReq)
 
-	resBytes, err := server.HandleRequest(rawReq, "test-user", true)
+	resBytes, err := server.HandleRequest(rawReq, "test-user", true, false)
 	if err != nil {
 		t.Fatalf("Failed to handle initialize request: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestMCPListTools(t *testing.T) {
 	}
 	rawReq, _ := json.Marshal(req)
 
-	resBytes, _ := server.HandleRequest(rawReq, "test-user", true)
+	resBytes, _ := server.HandleRequest(rawReq, "test-user", true, false)
 	var res Response
 	json.Unmarshal(resBytes, &res)
 
@@ -125,7 +125,7 @@ func TestMCPCreateAndReadPageTool(t *testing.T) {
 	}
 	rawReq, _ := json.Marshal(req)
 
-	resBytes, _ := server.HandleRequest(rawReq, "AI Assistant", true)
+	resBytes, _ := server.HandleRequest(rawReq, "AI Assistant", true, false)
 	var res Response
 	json.Unmarshal(resBytes, &res)
 
@@ -150,7 +150,7 @@ func TestMCPCreateAndReadPageTool(t *testing.T) {
 	}
 	rawReadReq, _ := json.Marshal(readReq)
 
-	resReadBytes, _ := server.HandleRequest(rawReadReq, "AI Assistant", true)
+	resReadBytes, _ := server.HandleRequest(rawReadReq, "AI Assistant", true, false)
 	var readRes Response
 	json.Unmarshal(resReadBytes, &readRes)
 

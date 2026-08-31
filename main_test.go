@@ -41,6 +41,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 		v1.GET("/health", h.GetHealth)
 		v1.POST("/auth/login", h.AuthLogin)
 		v1.GET("/auth/me", h.AuthMe)
+		v1.PUT("/auth/password", middleware.RequireAuth(), h.ChangePassword)
 
 		v1.GET("/pages", h.ListPages)
 		v1.GET("/pages/:slug", h.GetPage)
@@ -50,7 +51,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 		v1.GET("/search", h.SearchPages)
 
 		authed := v1.Group("")
-		authed.Use(middleware.RequireAuth())
+		authed.Use(middleware.RequireAuth(), middleware.RequirePasswordChanged())
 		{
 			authed.POST("/pages", h.CreatePage)
 			authed.PUT("/pages/:slug", h.UpdatePage)
@@ -65,7 +66,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 		}
 
 		admin := v1.Group("/admin")
-		admin.Use(middleware.RequireAdmin())
+		admin.Use(middleware.RequireAdmin(), middleware.RequirePasswordChanged())
 		{
 			admin.POST("/users", h.AdminCreateUser)
 			admin.GET("/users", h.AdminListUsers)
@@ -277,6 +278,71 @@ func TestRevertRevisionEndpoint(t *testing.T) {
 	}
 }
 
+func TestMustChangePasswordBlocksWriteActions(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	loginPayload := models.LoginRequest{Username: "admin", Password: "admin"}
+	bLogin, _ := json.Marshal(loginPayload)
+	wLogin := httptest.NewRecorder()
+	rLogin, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bLogin))
+	rLogin.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wLogin, rLogin)
+
+	var loginRes struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal(wLogin.Body.Bytes(), &loginRes)
+	token := loginRes.Token
+
+	// Attempting to create a page before changing the password must be blocked
+	pagePayload := models.CreatePageRequest{Title: "Should Be Blocked", Content: "x"}
+	bPage, _ := json.Marshal(pagePayload)
+	wPage := httptest.NewRecorder()
+	rPage, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(bPage))
+	rPage.Header.Set("Content-Type", "application/json")
+	rPage.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(wPage, rPage)
+
+	if wPage.Code != http.StatusForbidden {
+		t.Fatalf("Expected 403 Forbidden before password change, got %d: %s", wPage.Code, wPage.Body.String())
+	}
+
+	// Wrong current password must be rejected
+	wBadChange := httptest.NewRecorder()
+	bBadChange, _ := json.Marshal(models.ChangePasswordRequest{CurrentPassword: "wrong", NewPassword: "a-much-stronger-password"})
+	rBadChange, _ := http.NewRequest("PUT", "/api/v1/auth/password", bytes.NewBuffer(bBadChange))
+	rBadChange.Header.Set("Content-Type", "application/json")
+	rBadChange.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(wBadChange, rBadChange)
+
+	if wBadChange.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 Bad Request for wrong current password, got %d: %s", wBadChange.Code, wBadChange.Body.String())
+	}
+
+	// Correct password change clears the flag and unblocks writes
+	wChange := httptest.NewRecorder()
+	bChange, _ := json.Marshal(models.ChangePasswordRequest{CurrentPassword: "admin", NewPassword: "a-much-stronger-password"})
+	rChange, _ := http.NewRequest("PUT", "/api/v1/auth/password", bytes.NewBuffer(bChange))
+	rChange.Header.Set("Content-Type", "application/json")
+	rChange.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(wChange, rChange)
+
+	if wChange.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for password change, got %d: %s", wChange.Code, wChange.Body.String())
+	}
+
+	wPage2 := httptest.NewRecorder()
+	rPage2, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(bPage))
+	rPage2.Header.Set("Content-Type", "application/json")
+	rPage2.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(wPage2, rPage2)
+
+	if wPage2.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created after password change, got %d: %s", wPage2.Code, wPage2.Body.String())
+	}
+}
+
 func TestUserAuthAndApiKeys(t *testing.T) {
 	router, cleanup := setupTestRouter(t)
 	defer cleanup()
@@ -302,6 +368,26 @@ func TestUserAuthAndApiKeys(t *testing.T) {
 	}
 	json.Unmarshal(wLogin.Body.Bytes(), &loginRes)
 	token := loginRes.Token
+
+	if !loginRes.User.MustChangePassword {
+		t.Fatalf("Expected seeded admin to have must_change_password=true")
+	}
+
+	// 1b. Seeded admin must change its password before it can act as admin
+	changePayload := models.ChangePasswordRequest{
+		CurrentPassword: "admin",
+		NewPassword:     "a-much-stronger-password",
+	}
+	bChange, _ := json.Marshal(changePayload)
+	wChange := httptest.NewRecorder()
+	rChange, _ := http.NewRequest("PUT", "/api/v1/auth/password", bytes.NewBuffer(bChange))
+	rChange.Header.Set("Content-Type", "application/json")
+	rChange.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(wChange, rChange)
+
+	if wChange.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for password change, got %d: %s", wChange.Code, wChange.Body.String())
+	}
 
 	// 2. Admin creates a new user "henrik"
 	newUserPayload := models.CreateUserRequest{
