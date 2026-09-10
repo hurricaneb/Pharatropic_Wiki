@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Page, Attachment, User } from '../types';
-import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Paperclip, Download, Copy, Check, File, Image, Link2, Lock, Globe } from 'lucide-react';
+import { Edit3, History, Trash2, Tag as TagIcon, Eye, Calendar, Paperclip, Download, Copy, Check, File, Image, Link2, Lock, Globe, ChevronRight, Files } from 'lucide-react';
 import { wikiAPI, getApiHost } from '../api';
 
 import { transformWikiLinks, slugify } from '../utils/wikiLink';
@@ -90,6 +90,21 @@ export const PageView: React.FC<PageViewProps> = ({
     <article className="glass-panel" style={{ padding: '36px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header & Meta */}
       <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
+        {/* Breadcrumb (only when this page is a subpage) */}
+        {page.parent && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+            <span
+              onClick={() => onSelectPage && page.parent && onSelectPage(page.parent.slug)}
+              style={{ cursor: onSelectPage ? 'pointer' : 'default', color: 'var(--primary)' }}
+              title={`Gå till "${page.parent.title}"`}
+            >
+              {page.parent.title}
+            </span>
+            <ChevronRight size={14} />
+            <span>{page.title}</span>
+          </div>
+        )}
+
         {/* Top Row: Title + Visibility Badge (Left) & Action Buttons (Right) */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: page.summary ? '10px' : '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -222,6 +237,43 @@ export const PageView: React.FC<PageViewProps> = ({
           {transformWikiLinks(page.content)}
         </ReactMarkdown>
       </div>
+
+      {/* Subpages Section */}
+      {page.children && page.children.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '20px', paddingTop: '20px' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Files size={18} color="var(--primary)" />
+            Undersidor ({page.children.length})
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+            {page.children.map((child) => (
+              <div
+                key={child.id}
+                className="glass-panel"
+                style={{
+                  padding: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-color)',
+                }}
+                onClick={() => onSelectPage && onSelectPage(child.slug)}
+              >
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {!child.is_public && <Lock size={12} color="var(--accent)" />}
+                  {child.title}
+                </div>
+                {child.summary && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {child.summary}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Attachments Section */}
       {page.attachments && page.attachments.length > 0 && (

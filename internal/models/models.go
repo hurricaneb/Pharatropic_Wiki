@@ -20,7 +20,9 @@ type User struct {
 	ApiKeys            []ApiKey       `json:"api_keys,omitempty" gorm:"foreignKey:UserID"`
 }
 
-// Page represents a main wiki page
+// Page represents a main wiki page. Pages may have one level of subpages:
+// a page with a ParentID cannot itself be a parent (enforced in the
+// repository), keeping the hierarchy exactly one level deep.
 type Page struct {
 	ID          uint           `gorm:"primaryKey" json:"id"`
 	Slug        string         `gorm:"uniqueIndex;not null" json:"slug"`
@@ -29,9 +31,12 @@ type Page struct {
 	Content     string         `gorm:"type:text;not null" json:"content"`
 	IsPublic    bool           `gorm:"default:false;index" json:"is_public"`
 	Views       int64          `gorm:"default:0" json:"views"`
+	ParentID    *uint          `gorm:"index" json:"parent_id"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	Parent      *Page          `json:"parent,omitempty" gorm:"foreignKey:ParentID;references:ID"`
+	Children    []Page         `json:"children,omitempty" gorm:"foreignKey:ParentID;references:ID"`
 	Revisions   []Revision     `json:"revisions,omitempty" gorm:"foreignKey:PageID"`
 	Attachments []Attachment   `json:"attachments,omitempty" gorm:"foreignKey:PageID"`
 	Tags        []Tag          `json:"tags,omitempty" gorm:"many2many:page_tags;"`
@@ -82,22 +87,24 @@ type ApiKey struct {
 
 // CreatePageRequest DTO for API page creation
 type CreatePageRequest struct {
-	Title    string   `json:"title" binding:"required"`
-	Content  string   `json:"content" binding:"required"`
-	Summary  string   `json:"summary"`
-	Comment  string   `json:"comment"`
-	IsPublic *bool    `json:"is_public"`
-	Tags     []string `json:"tags"`
+	Title      string   `json:"title" binding:"required"`
+	Content    string   `json:"content" binding:"required"`
+	Summary    string   `json:"summary"`
+	Comment    string   `json:"comment"`
+	IsPublic   *bool    `json:"is_public"`
+	Tags       []string `json:"tags"`
+	ParentSlug string   `json:"parent_slug"` // slug of the top-level page this becomes a subpage of, empty for a top-level page
 }
 
 // UpdatePageRequest DTO for API page update
 type UpdatePageRequest struct {
-	Title    string   `json:"title"`
-	Content  string   `json:"content" binding:"required"`
-	Summary  string   `json:"summary"`
-	Comment  string   `json:"comment"`
-	IsPublic *bool    `json:"is_public"`
-	Tags     []string `json:"tags"`
+	Title      string   `json:"title"`
+	Content    string   `json:"content" binding:"required"`
+	Summary    string   `json:"summary"`
+	Comment    string   `json:"comment"`
+	IsPublic   *bool    `json:"is_public"`
+	Tags       []string `json:"tags"`
+	ParentSlug *string  `json:"parent_slug"` // nil = unchanged, "" = detach to top-level, else = set parent
 }
 
 // Auth DTOs

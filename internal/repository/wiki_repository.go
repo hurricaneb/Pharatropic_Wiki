@@ -24,6 +24,40 @@ func NewWikiRepository(db *gorm.DB) *WikiRepository {
 	return &WikiRepository{db: db}
 }
 
+// resolveParentID validates a parent-page slug reference and returns the
+// resulting ParentID for a page. pageID is 0 when creating a brand-new page
+// (which cannot yet be anyone's parent, so the "has children" check is
+// skipped). Enforces exactly one level of nesting: a page may have a parent,
+// or have children, but never both.
+func (r *WikiRepository) resolveParentID(pageID uint, parentSlug string) (*uint, error) {
+	if parentSlug == "" {
+		return nil, nil
+	}
+
+	var parent models.Page
+	if err := r.db.Where("slug = ?", parentSlug).First(&parent).Error; err != nil {
+		return nil, errors.New("den överordnade sidan hittades inte")
+	}
+
+	if pageID != 0 && parent.ID == pageID {
+		return nil, errors.New("en sida kan inte vara sin egen överordnade sida")
+	}
+
+	if parent.ParentID != nil {
+		return nil, errors.New("den valda överordnade sidan är själv en undersida (endast en nivå med undersidor stöds)")
+	}
+
+	if pageID != 0 {
+		var childCount int64
+		r.db.Model(&models.Page{}).Where("parent_id = ?", pageID).Count(&childCount)
+		if childCount > 0 {
+			return nil, errors.New("denna sida har egna undersidor och kan därför inte bli en undersida")
+		}
+	}
+
+	return &parent.ID, nil
+}
+
 func (r *WikiRepository) CreatePage(req *models.CreatePageRequest, author string) (*models.Page, error) {
 	pageSlug := slug.Make(req.Title)
 	if pageSlug == "" {
@@ -37,6 +71,11 @@ func (r *WikiRepository) CreatePage(req *models.CreatePageRequest, author string
 	var existing models.Page
 	if err := r.db.Where("slug = ?", pageSlug).First(&existing).Error; err == nil {
 		return nil, errors.New("en sida med den titeln finns redan")
+	}
+
+	parentID, err := r.resolveParentID(0, req.ParentSlug)
+	if err != nil {
+		return nil, err
 	}
 
 	var tags []models.Tag
@@ -67,6 +106,7 @@ func (r *WikiRepository) CreatePage(req *models.CreatePageRequest, author string
 		Summary:  req.Summary,
 		Content:  req.Content,
 		IsPublic: isPublic,
+		ParentID: parentID,
 		Tags:     tags,
 	}
 
@@ -89,9 +129,17 @@ func (r *WikiRepository) CreatePage(req *models.CreatePageRequest, author string
 
 func (r *WikiRepository) GetPageBySlug(slug string, isAuthed bool) (*models.Page, error) {
 	var page models.Page
-	err := r.db.Preload("Tags").Preload("Attachments").Preload("Revisions", func(db *gorm.DB) *gorm.DB {
-		return db.Order("revisions.created_at DESC")
-	}).Where("slug = ?", slug).First(&page).Error
+	err := r.db.Preload("Tags").Preload("Attachments").
+		Preload("Parent").
+		Preload("Children", func(db *gorm.DB) *gorm.DB {
+			if !isAuthed {
+				db = db.Where("is_public = ?", true)
+			}
+			return db.Order("title ASC")
+		}).
+		Preload("Revisions", func(db *gorm.DB) *gorm.DB {
+			return db.Order("revisions.created_at DESC")
+		}).Where("slug = ?", slug).First(&page).Error
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +197,13 @@ func (r *WikiRepository) UpdatePage(pageSlug string, req *models.UpdatePageReque
 	if req.IsPublic != nil {
 		page.IsPublic = *req.IsPublic
 	}
+	if req.ParentSlug != nil {
+		parentID, err := r.resolveParentID(page.ID, *req.ParentSlug)
+		if err != nil {
+			return nil, err
+		}
+		page.ParentID = parentID
+	}
 	page.UpdatedAt = time.Now()
 
 	// Update tags if provided
@@ -194,6 +249,12 @@ func (r *WikiRepository) DeletePage(slug string) error {
 	if err := r.db.Where("slug = ?", slug).First(&page).Error; err != nil {
 		return errors.New("sidan hittades inte")
 	}
+
+	// Promote any subpages to top-level instead of losing them
+	if err := r.db.Model(&models.Page{}).Where("parent_id = ?", page.ID).Update("parent_id", nil).Error; err != nil {
+		return err
+	}
+
 	return r.db.Delete(&page).Error
 }
 

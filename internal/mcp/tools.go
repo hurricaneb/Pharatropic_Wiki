@@ -82,6 +82,10 @@ func GetToolDefinitions() []Tool {
 						Type:        "array",
 						Description: "List of tag names for category classification (e.g. ['api', 'go'])",
 					},
+					"parent_slug": {
+						Type:        "string",
+						Description: "Slug of an existing top-level page to create this page as a subpage of. Only one level of nesting is supported: the parent must itself be a top-level page. Omit to create a top-level page.",
+					},
 				},
 				Required: []string{"title", "content"},
 			},
@@ -119,6 +123,10 @@ func GetToolDefinitions() []Tool {
 					"tags": {
 						Type:        "array",
 						Description: "Updated list of tags (optional)",
+					},
+					"parent_slug": {
+						Type:        "string",
+						Description: "Slug of an existing top-level page to move this page under. Pass an empty string to detach it back to a top-level page. Omit to leave the parent unchanged. The parent must itself be a top-level page (only one level of nesting is supported), and a page that already has subpages of its own cannot be given a parent.",
 					},
 				},
 				Required: []string{"slug", "content"},
@@ -216,13 +224,16 @@ func ExecuteToolCall(repo *repository.WikiRepository, name string, args map[stri
 			}
 		}
 
+		parentSlug, _ := args["parent_slug"].(string)
+
 		req := models.CreatePageRequest{
-			Title:    title,
-			Content:  content,
-			Summary:  summary,
-			IsPublic: isPublic,
-			Tags:     tags,
-			Comment:  "Created via MCP Tool Call",
+			Title:      title,
+			Content:    content,
+			Summary:    summary,
+			IsPublic:   isPublic,
+			Tags:       tags,
+			ParentSlug: parentSlug,
+			Comment:    "Created via MCP Tool Call",
 		}
 
 		page, err := repo.CreatePage(&req, author)
@@ -269,6 +280,9 @@ func ExecuteToolCall(repo *repository.WikiRepository, name string, args map[stri
 			IsPublic: isPublic,
 			Comment:  comment,
 			Tags:     tags,
+		}
+		if val, exists := args["parent_slug"].(string); exists {
+			req.ParentSlug = &val
 		}
 
 		page, err := repo.UpdatePage(slugVal, &req, author)
