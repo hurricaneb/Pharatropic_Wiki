@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -49,6 +50,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 		v1.GET("/pages/:slug/backlinks", h.GetBacklinks)
 		v1.GET("/pages/:slug/attachments", h.GetAttachments)
 		v1.GET("/search", h.SearchPages)
+		v1.GET("/tags", h.ListTags)
 
 		authed := v1.Group("")
 		authed.Use(middleware.RequireAuth(), middleware.RequirePasswordChanged())
@@ -770,5 +772,472 @@ func TestSubpages_DetachFromParent(t *testing.T) {
 	}
 	if updated.ParentID != nil {
 		t.Fatalf("Expected ParentID to be nil after detaching, got %v", updated.ParentID)
+	}
+}
+
+// --- Search, tags, attachments, auth/me, admin & user-key listing ---
+
+func TestSearchPages_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	createPageViaAPI(t, router, models.CreatePageRequest{Title: "Sökbar Elefant", Content: "x"})
+
+	wMissing := httptest.NewRecorder()
+	rMissing, _ := http.NewRequest("GET", "/api/v1/search", nil)
+	router.ServeHTTP(wMissing, rMissing)
+	if wMissing.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for a missing 'q' param, got %d", wMissing.Code)
+	}
+
+	wFound := httptest.NewRecorder()
+	rFound, _ := http.NewRequest("GET", "/api/v1/search?q=elefant", nil)
+	rFound.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wFound, rFound)
+	if wFound.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", wFound.Code)
+	}
+	var res struct {
+		Results []models.Page `json:"results"`
+	}
+	json.Unmarshal(wFound.Body.Bytes(), &res)
+	if len(res.Results) != 1 {
+		t.Fatalf("Expected 1 search result, got %d", len(res.Results))
+	}
+}
+
+func TestListTags_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/api/v1/tags", nil)
+	router.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func multipartFileRequest(t *testing.T, url, fieldFilename, fileContent, contentType string) *http.Request {
+	t.Helper()
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", fieldFilename)
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	part.Write([]byte(fileContent))
+	writer.Close()
+
+	req, _ := http.NewRequest("POST", url, body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("X-API-Key", "master-secret")
+	return req
+}
+
+func TestUploadAttachment_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	page := mustCreatePageViaAPI(t, router)
+
+	// Missing file field
+	wMissing := httptest.NewRecorder()
+	rMissing, _ := http.NewRequest("POST", "/api/v1/pages/"+page.Slug+"/attachments", nil)
+	rMissing.Header.Set("X-API-Key", "master-secret")
+	rMissing.Header.Set("Content-Type", "multipart/form-data; boundary=x")
+	router.ServeHTTP(wMissing, rMissing)
+	if wMissing.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 with no file, got %d", wMissing.Code)
+	}
+
+	// Successful upload to an existing page
+	wOK := httptest.NewRecorder()
+	rOK := multipartFileRequest(t, "/api/v1/pages/"+page.Slug+"/attachments", "test.png", "fake-image-bytes", "image/png")
+	router.ServeHTTP(wOK, rOK)
+	if wOK.Code != http.StatusCreated {
+		t.Fatalf("Expected 201, got %d: %s", wOK.Code, wOK.Body.String())
+	}
+	var uploadRes struct {
+		Data     models.Attachment `json:"data"`
+		Markdown string            `json:"markdown"`
+	}
+	json.Unmarshal(wOK.Body.Bytes(), &uploadRes)
+	if uploadRes.Data.ID == 0 {
+		t.Fatalf("Expected a created attachment, got %+v", uploadRes)
+	}
+	t.Cleanup(func() { os.Remove(filepathJoinUploads(uploadRes.Data.Filename)) })
+
+	// Upload to a nonexistent page: SaveAttachment fails, rollback removes the file
+	wBadPage := httptest.NewRecorder()
+	rBadPage := multipartFileRequest(t, "/api/v1/pages/finns-inte/attachments", "test2.png", "x", "image/png")
+	router.ServeHTTP(wBadPage, rBadPage)
+	if wBadPage.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 uploading to a nonexistent page, got %d", wBadPage.Code)
+	}
+}
+
+func filepathJoinUploads(filename string) string {
+	return "uploads/" + filename
+}
+
+// mustCreatePageViaAPI creates a page and fails the test immediately if that
+// doesn't succeed, for tests that just need "some existing page" to exist.
+func mustCreatePageViaAPI(t *testing.T, router *gin.Engine) models.Page {
+	t.Helper()
+	page, code := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Sida Med Bilagor", Content: "x"})
+	if code != http.StatusCreated {
+		t.Fatalf("failed to create page for attachment test, code=%d", code)
+	}
+	return page
+}
+
+func TestGetAttachments_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	isPrivate := false
+	privatePage, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Privat Med Bilagor", Content: "x", IsPublic: &isPrivate})
+
+	wUnauthed := httptest.NewRecorder()
+	rUnauthed, _ := http.NewRequest("GET", "/api/v1/pages/"+privatePage.Slug+"/attachments", nil)
+	router.ServeHTTP(wUnauthed, rUnauthed)
+	if wUnauthed.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 for a private page's attachments when unauthenticated, got %d", wUnauthed.Code)
+	}
+
+	wNotFound := httptest.NewRecorder()
+	rNotFound, _ := http.NewRequest("GET", "/api/v1/pages/finns-inte/attachments", nil)
+	router.ServeHTTP(wNotFound, rNotFound)
+	if wNotFound.Code != http.StatusNotFound {
+		t.Fatalf("Expected 404 for a nonexistent page's attachments, got %d", wNotFound.Code)
+	}
+
+	wOK := httptest.NewRecorder()
+	rOK, _ := http.NewRequest("GET", "/api/v1/pages/"+privatePage.Slug+"/attachments", nil)
+	rOK.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wOK, rOK)
+	if wOK.Code != http.StatusOK {
+		t.Fatalf("Expected 200 when authenticated, got %d", wOK.Code)
+	}
+}
+
+func TestDeleteAttachment_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	page := mustCreatePageViaAPI(t, router)
+	wUpload := httptest.NewRecorder()
+	rUpload := multipartFileRequest(t, "/api/v1/pages/"+page.Slug+"/attachments", "todelete.png", "x", "image/png")
+	router.ServeHTTP(wUpload, rUpload)
+	var uploadRes struct {
+		Data models.Attachment `json:"data"`
+	}
+	json.Unmarshal(wUpload.Body.Bytes(), &uploadRes)
+
+	wBadID := httptest.NewRecorder()
+	rBadID, _ := http.NewRequest("DELETE", "/api/v1/attachments/not-a-number", nil)
+	rBadID.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wBadID, rBadID)
+	if wBadID.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for a non-numeric attachment id, got %d", wBadID.Code)
+	}
+
+	wNotFound := httptest.NewRecorder()
+	rNotFound, _ := http.NewRequest("DELETE", "/api/v1/attachments/999999", nil)
+	rNotFound.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wNotFound, rNotFound)
+	if wNotFound.Code != http.StatusNotFound {
+		t.Fatalf("Expected 404 for a nonexistent attachment, got %d", wNotFound.Code)
+	}
+
+	wOK := httptest.NewRecorder()
+	rOK, _ := http.NewRequest("DELETE", fmt.Sprintf("/api/v1/attachments/%d", uploadRes.Data.ID), nil)
+	rOK.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wOK, rOK)
+	if wOK.Code != http.StatusOK {
+		t.Fatalf("Expected 200 deleting the attachment, got %d: %s", wOK.Code, wOK.Body.String())
+	}
+}
+
+func TestAuthMe_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	wUnauthed := httptest.NewRecorder()
+	rUnauthed, _ := http.NewRequest("GET", "/api/v1/auth/me", nil)
+	router.ServeHTTP(wUnauthed, rUnauthed)
+	if wUnauthed.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 when unauthenticated, got %d", wUnauthed.Code)
+	}
+
+	wMaster := httptest.NewRecorder()
+	rMaster, _ := http.NewRequest("GET", "/api/v1/auth/me", nil)
+	rMaster.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wMaster, rMaster)
+	if wMaster.Code != http.StatusOK {
+		t.Fatalf("Expected 200 for the master API key, got %d", wMaster.Code)
+	}
+	var masterRes struct {
+		User struct {
+			Username string `json:"username"`
+			Role     string `json:"role"`
+		} `json:"user"`
+	}
+	json.Unmarshal(wMaster.Body.Bytes(), &masterRes)
+	if masterRes.User.Username != "MasterAdmin" || masterRes.User.Role != "admin" {
+		t.Fatalf("Unexpected master admin identity: %+v", masterRes.User)
+	}
+
+	token := loginAsSeededAdmin(t, router)
+	wUser := httptest.NewRecorder()
+	rUser, _ := http.NewRequest("GET", "/api/v1/auth/me", nil)
+	rUser.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(wUser, rUser)
+	if wUser.Code != http.StatusOK {
+		t.Fatalf("Expected 200 for a real logged-in user, got %d", wUser.Code)
+	}
+}
+
+// loginAsSeededAdmin logs in as the seeded default admin and returns a Bearer
+// token, without changing its password (some tests only need identity, not
+// the ability to perform write actions).
+func loginAsSeededAdmin(t *testing.T, router *gin.Engine) string {
+	t.Helper()
+	bLogin, _ := json.Marshal(models.LoginRequest{Username: "admin", Password: "admin"})
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bLogin))
+	r.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, r)
+
+	var res struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &res)
+	return res.Token
+}
+
+func TestAdminListUsers_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/api/v1/admin/users", nil)
+	r.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var res struct {
+		Data []models.User `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &res)
+	if len(res.Data) != 1 {
+		t.Fatalf("Expected 1 seeded user, got %d", len(res.Data))
+	}
+}
+
+func TestDeletePage_NotFound_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("DELETE", "/api/v1/pages/finns-inte", nil)
+	r.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(w, r)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("Expected 404, got %d", w.Code)
+	}
+}
+
+func TestGetRevisions_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	isPrivate := false
+	privatePage, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Privata Revisioner", Content: "x", IsPublic: &isPrivate})
+
+	wUnauthed := httptest.NewRecorder()
+	rUnauthed, _ := http.NewRequest("GET", "/api/v1/pages/"+privatePage.Slug+"/revisions", nil)
+	router.ServeHTTP(wUnauthed, rUnauthed)
+	if wUnauthed.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401, got %d", wUnauthed.Code)
+	}
+
+	wNotFound := httptest.NewRecorder()
+	rNotFound, _ := http.NewRequest("GET", "/api/v1/pages/finns-inte/revisions", nil)
+	router.ServeHTTP(wNotFound, rNotFound)
+	if wNotFound.Code != http.StatusNotFound {
+		t.Fatalf("Expected 404, got %d", wNotFound.Code)
+	}
+
+	wOK := httptest.NewRecorder()
+	rOK, _ := http.NewRequest("GET", "/api/v1/pages/"+privatePage.Slug+"/revisions", nil)
+	rOK.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wOK, rOK)
+	if wOK.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", wOK.Code)
+	}
+}
+
+func TestAuthLogin_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	wBadBody := httptest.NewRecorder()
+	rBadBody, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBufferString("not json"))
+	rBadBody.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wBadBody, rBadBody)
+	if wBadBody.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for a malformed body, got %d", wBadBody.Code)
+	}
+
+	wWrongUser := httptest.NewRecorder()
+	bWrongUser, _ := json.Marshal(models.LoginRequest{Username: "finns-inte", Password: "x"})
+	rWrongUser, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bWrongUser))
+	rWrongUser.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wWrongUser, rWrongUser)
+	if wWrongUser.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 for a nonexistent user, got %d", wWrongUser.Code)
+	}
+
+	wWrongPass := httptest.NewRecorder()
+	bWrongPass, _ := json.Marshal(models.LoginRequest{Username: "admin", Password: "wrong"})
+	rWrongPass, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bWrongPass))
+	rWrongPass.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wWrongPass, rWrongPass)
+	if wWrongPass.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 for a wrong password, got %d", wWrongPass.Code)
+	}
+}
+
+func TestAdminCreateUser_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	wBadBody := httptest.NewRecorder()
+	rBadBody, _ := http.NewRequest("POST", "/api/v1/admin/users", bytes.NewBufferString("not json"))
+	rBadBody.Header.Set("Content-Type", "application/json")
+	rBadBody.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wBadBody, rBadBody)
+	if wBadBody.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for a malformed body, got %d", wBadBody.Code)
+	}
+
+	wDup := httptest.NewRecorder()
+	bDup, _ := json.Marshal(models.CreateUserRequest{Username: "admin", Email: "dup@example.com", Password: "pw123456"})
+	rDup, _ := http.NewRequest("POST", "/api/v1/admin/users", bytes.NewBuffer(bDup))
+	rDup.Header.Set("Content-Type", "application/json")
+	rDup.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wDup, rDup)
+	if wDup.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 creating a user with a duplicate username, got %d", wDup.Code)
+	}
+}
+
+func TestUserCreateApiKey_BadBody_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	bCreate, _ := json.Marshal(models.CreateUserRequest{Username: "badbodyuser", Email: "badbody@example.com", Password: "pw123456", Role: "user"})
+	wCreate := httptest.NewRecorder()
+	rCreate, _ := http.NewRequest("POST", "/api/v1/admin/users", bytes.NewBuffer(bCreate))
+	rCreate.Header.Set("Content-Type", "application/json")
+	rCreate.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wCreate, rCreate)
+
+	bLogin, _ := json.Marshal(models.LoginRequest{Username: "badbodyuser", Password: "pw123456"})
+	wLogin := httptest.NewRecorder()
+	rLogin, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bLogin))
+	rLogin.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wLogin, rLogin)
+	var loginRes struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal(wLogin.Body.Bytes(), &loginRes)
+	token := loginRes.Token
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("POST", "/api/v1/user/keys", bytes.NewBufferString("not json"))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for a malformed body, got %d", w.Code)
+	}
+}
+
+func TestUserRevokeApiKey_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	bCreate, _ := json.Marshal(models.CreateUserRequest{Username: "revoker", Email: "revoker@example.com", Password: "pw123456", Role: "user"})
+	wCreate := httptest.NewRecorder()
+	rCreate, _ := http.NewRequest("POST", "/api/v1/admin/users", bytes.NewBuffer(bCreate))
+	rCreate.Header.Set("Content-Type", "application/json")
+	rCreate.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wCreate, rCreate)
+
+	bLogin, _ := json.Marshal(models.LoginRequest{Username: "revoker", Password: "pw123456"})
+	wLogin := httptest.NewRecorder()
+	rLogin, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bLogin))
+	rLogin.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wLogin, rLogin)
+	var loginRes struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal(wLogin.Body.Bytes(), &loginRes)
+
+	wBadID := httptest.NewRecorder()
+	rBadID, _ := http.NewRequest("DELETE", "/api/v1/user/keys/not-a-number", nil)
+	rBadID.Header.Set("Authorization", "Bearer "+loginRes.Token)
+	router.ServeHTTP(wBadID, rBadID)
+	if wBadID.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for a non-numeric key id, got %d", wBadID.Code)
+	}
+
+	wNotOwned := httptest.NewRecorder()
+	rNotOwned, _ := http.NewRequest("DELETE", "/api/v1/user/keys/999999", nil)
+	rNotOwned.Header.Set("Authorization", "Bearer "+loginRes.Token)
+	router.ServeHTTP(wNotOwned, rNotOwned)
+	if wNotOwned.Code != http.StatusOK {
+		// RevokeUserApiKey deletes by (id, user_id) match; deleting nothing is not an error
+		t.Fatalf("Expected 200 even when nothing matched, got %d", wNotOwned.Code)
+	}
+}
+
+func TestUserListApiKeys_HTTP(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	// Create a regular (non-seeded-admin) user via the master key, so it has
+	// no forced password change blocking authenticated actions.
+	wCreate := httptest.NewRecorder()
+	bCreate, _ := json.Marshal(models.CreateUserRequest{Username: "keylister", Email: "keylister@example.com", Password: "pw123456", Role: "user"})
+	rCreate, _ := http.NewRequest("POST", "/api/v1/admin/users", bytes.NewBuffer(bCreate))
+	rCreate.Header.Set("Content-Type", "application/json")
+	rCreate.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(wCreate, rCreate)
+	if wCreate.Code != http.StatusCreated {
+		t.Fatalf("Failed to create test user: %d %s", wCreate.Code, wCreate.Body.String())
+	}
+
+	bLogin, _ := json.Marshal(models.LoginRequest{Username: "keylister", Password: "pw123456"})
+	wLogin := httptest.NewRecorder()
+	rLogin, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(bLogin))
+	rLogin.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wLogin, rLogin)
+	var loginRes struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal(wLogin.Body.Bytes(), &loginRes)
+
+	wKeys := httptest.NewRecorder()
+	rKeys, _ := http.NewRequest("GET", "/api/v1/user/keys", nil)
+	rKeys.Header.Set("Authorization", "Bearer "+loginRes.Token)
+	router.ServeHTTP(wKeys, rKeys)
+	if wKeys.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", wKeys.Code, wKeys.Body.String())
 	}
 }

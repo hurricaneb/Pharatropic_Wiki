@@ -145,8 +145,17 @@ Besök **`http://localhost:8080`**. Standard Admin: `admin` / `admin`.
 ## 🧪 Köra Tester
 
 ```bash
-# Kör alla automatiska backend- & integrationstester
+# Backend: alla automatiska tester (handlers, repository, middleware, MCP)
 go test -v ./...
+
+# Backend: med testtäckning
+go test ./... -coverpkg=./... -coverprofile=cover.out && go tool cover -func=cover.out
+
+# Frontend: komponent- och enhetstester (Vitest + React Testing Library)
+cd web && npm test
+
+# Frontend: med testtäckning
+cd web && npm run test:coverage
 ```
 
 ---

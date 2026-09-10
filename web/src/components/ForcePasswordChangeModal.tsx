@@ -71,12 +71,13 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+            <label htmlFor="fpc-current-password" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
               Nuvarande lösenord
             </label>
             <div style={{ position: 'relative' }}>
               <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
+                id="fpc-current-password"
                 type="password"
                 className="input-field"
                 style={{ paddingLeft: '38px' }}
@@ -89,12 +90,13 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+            <label htmlFor="fpc-new-password" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
               Nytt lösenord (minst 8 tecken)
             </label>
             <div style={{ position: 'relative' }}>
               <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
+                id="fpc-new-password"
                 type="password"
                 className="input-field"
                 style={{ paddingLeft: '38px' }}
@@ -107,12 +109,13 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+            <label htmlFor="fpc-confirm-password" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
               Bekräfta nytt lösenord
             </label>
             <div style={{ position: 'relative' }}>
               <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
+                id="fpc-confirm-password"
                 type="password"
                 className="input-field"
                 style={{ paddingLeft: '38px' }}
