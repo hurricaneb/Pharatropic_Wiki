@@ -32,4 +32,11 @@ ENV PORT=8080
 ENV DB_DRIVER=sqlite
 ENV DB_PATH=/app/wiki.db
 
+# Reports container status as "healthy"/"unhealthy" (visible in `docker ps`,
+# Portainer, and consumable by external monitors like Uptime Kuma) based on
+# the app's own /api/v1/health endpoint. wget is busybox-provided on alpine,
+# no extra package needed.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget --quiet --tries=1 --spider "http://localhost:${PORT}/api/v1/health" || exit 1
+
 CMD ["/app/wiki-server"]
