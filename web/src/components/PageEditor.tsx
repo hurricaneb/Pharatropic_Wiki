@@ -10,6 +10,7 @@ import { transformWikiLinks } from '../utils/wikiLink';
 interface PageEditorProps {
   initialPage?: Page | null;
   initialTitle?: string;
+  pages?: Page[];
   onSave: (data: CreatePageInput | UpdatePageInput) => Promise<void>;
   onCancel: () => void;
 }
@@ -17,6 +18,7 @@ interface PageEditorProps {
 export const PageEditor: React.FC<PageEditorProps> = ({
   initialPage,
   initialTitle,
+  pages = [],
   onSave,
   onCancel,
 }) => {
@@ -30,7 +32,13 @@ export const PageEditor: React.FC<PageEditorProps> = ({
     initialPage?.tags ? initialPage.tags.map((t) => t.name).join(', ') : ''
   );
   const [comment, setComment] = useState('');
+  const [parentSlug, setParentSlug] = useState(initialPage?.parent?.slug || '');
   const [activeTab, setActiveTab] = useState<'editor' | 'split' | 'preview'>('split');
+
+  // Only top-level pages may be a parent (one level of nesting supported),
+  // and a page can't be its own parent.
+  const eligibleParents = pages.filter((p) => !p.parent_id && p.id !== initialPage?.id);
+  const hasOwnSubpages = !!(initialPage?.children && initialPage.children.length > 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -86,6 +94,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         content,
         is_public: isPublic,
         tags,
+        parent_slug: hasOwnSubpages ? '' : parentSlug,
         comment: comment.trim() || (initialPage ? 'Sida uppdaterad' : 'Ny sida skapad'),
       });
     } catch (err: any) {
@@ -223,6 +232,29 @@ export const PageEditor: React.FC<PageEditorProps> = ({
               </div>
             </label>
           </div>
+        </div>
+
+        {/* Parent Page (Subpage placement) */}
+        <div>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+            Överordnad sida (valfritt)
+          </label>
+          {hasOwnSubpages ? (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', padding: '10px 14px', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-md)' }}>
+              Den här sidan har egna undersidor och kan därför inte bli en undersida själv.
+            </div>
+          ) : (
+            <select
+              className="input-field"
+              value={parentSlug}
+              onChange={(e) => setParentSlug(e.target.value)}
+            >
+              <option value="">— Ingen (toppnivåsida) —</option>
+              {eligibleParents.map((p) => (
+                <option key={p.id} value={p.slug}>{p.title}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Summary & Tags */}

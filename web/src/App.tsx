@@ -223,6 +223,7 @@ export function App() {
           {viewMode === 'new' && (
             <PageEditor
               initialTitle={newTitlePrefill}
+              pages={pages}
               onSave={handleCreatePage as any}
               onCancel={() => {
                 setNewTitlePrefill('');
@@ -234,6 +235,7 @@ export function App() {
           {viewMode === 'edit' && activePage && (
             <PageEditor
               initialPage={activePage}
+              pages={pages}
               onSave={handleUpdatePage as any}
               onCancel={() => setViewMode('view')}
             />

@@ -17,6 +17,7 @@ En blixtsnabb, modern och utökbar Wiki-applikation skriven i **Go** med ett kom
 - 📜 **Versionshistorik & 1-Klick Återställning (Rollback):** Varje redigering sparar en komplett revision. Återställ till tidigare versioner med ett klick.
 - 📁 **Filbilagor & Bildhantering:** Ladda upp valfri filtyp direkt till sidor med automatiska Markdown-snippets (`![bild](/uploads/...)`). Bilder och PDF:er visas direkt i webbläsaren; alla andra filtyper laddas ner istället för att köras, som skydd mot skadligt uppladdat innehåll.
 - 🔍 **Fulltextsökning & Taggar:** Snabbsökning i titlar och innehåll med tagg-filtrering.
+- 🗂️ **Undersidor (en nivå):** Sidor kan ha undersidor, precis som i klassiska wikis — synligt som ett träd i sidofältet, med brödsmulenavigering och en undersides-lista på föräldrasidan. Endast en nivå djupt stöds.
 
 ---
 

@@ -602,3 +602,173 @@ func TestPrivateAndPublicPageVisibility(t *testing.T) {
 		t.Fatalf("Expected page to remain public after update with omitted is_public")
 	}
 }
+
+// --- Subpages (one level of hierarchy) ---
+
+func createPageViaAPI(t *testing.T, router *gin.Engine, req models.CreatePageRequest) (models.Page, int) {
+	t.Helper()
+	body, _ := json.Marshal(req)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("POST", "/api/v1/pages", bytes.NewBuffer(body))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(w, r)
+
+	var res struct {
+		Data  models.Page `json:"data"`
+		Error string      `json:"error"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &res)
+	return res.Data, w.Code
+}
+
+func updatePageViaAPI(t *testing.T, router *gin.Engine, slug string, req models.UpdatePageRequest) (models.Page, int, string) {
+	t.Helper()
+	body, _ := json.Marshal(req)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("PUT", "/api/v1/pages/"+slug, bytes.NewBuffer(body))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(w, r)
+
+	var res struct {
+		Data  models.Page `json:"data"`
+		Error string      `json:"error"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &res)
+	return res.Data, w.Code, res.Error
+}
+
+func getPageViaAPI(t *testing.T, router *gin.Engine, slug string) (models.Page, int) {
+	t.Helper()
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/api/v1/pages/"+slug, nil)
+	r.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(w, r)
+
+	var res struct {
+		Data models.Page `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &res)
+	return res.Data, w.Code
+}
+
+func TestSubpages_CreateWithParentAndFetchHierarchy(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	parent, code := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Föräldrasida", Content: "root"})
+	if code != http.StatusCreated {
+		t.Fatalf("Expected 201 for parent page, got %d", code)
+	}
+
+	child, code := createPageViaAPI(t, router, models.CreatePageRequest{
+		Title: "Barnsida", Content: "child", ParentSlug: parent.Slug,
+	})
+	if code != http.StatusCreated {
+		t.Fatalf("Expected 201 for child page, got %d", code)
+	}
+	if child.ParentID == nil || *child.ParentID != parent.ID {
+		t.Fatalf("Expected child.ParentID to be %d, got %v", parent.ID, child.ParentID)
+	}
+
+	fetchedChild, _ := getPageViaAPI(t, router, child.Slug)
+	if fetchedChild.Parent == nil || fetchedChild.Parent.Slug != parent.Slug {
+		t.Fatalf("Expected fetched child to have Parent populated with slug %q, got %+v", parent.Slug, fetchedChild.Parent)
+	}
+
+	fetchedParent, _ := getPageViaAPI(t, router, parent.Slug)
+	if len(fetchedParent.Children) != 1 || fetchedParent.Children[0].Slug != child.Slug {
+		t.Fatalf("Expected fetched parent to have 1 child with slug %q, got %+v", child.Slug, fetchedParent.Children)
+	}
+}
+
+func TestSubpages_RejectMoreThanOneLevelDeep(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	grandparent, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Farfar", Content: "x"})
+	parent, code := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Förälder Två", Content: "x", ParentSlug: grandparent.Slug})
+	if code != http.StatusCreated {
+		t.Fatalf("Expected 201 for parent page, got %d", code)
+	}
+
+	_, code = createPageViaAPI(t, router, models.CreatePageRequest{Title: "Barnbarn", Content: "x", ParentSlug: parent.Slug})
+	if code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 when nesting a second level deep, got %d", code)
+	}
+}
+
+func TestSubpages_PageWithChildrenCannotBecomeChild(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	pageA, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Sida A", Content: "x"})
+	_, code := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Sida B", Content: "x", ParentSlug: pageA.Slug})
+	if code != http.StatusCreated {
+		t.Fatalf("Expected 201 creating child of A, got %d", code)
+	}
+
+	otherParent, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Annan Förälder", Content: "x"})
+	newParentSlug := otherParent.Slug
+	_, code, errMsg := updatePageViaAPI(t, router, pageA.Slug, models.UpdatePageRequest{Content: "x", ParentSlug: &newParentSlug})
+	if code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 when giving a parent-with-children a parent of its own, got %d (%s)", code, errMsg)
+	}
+}
+
+func TestSubpages_CannotBeOwnParent(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	page, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Självrefererande Sida", Content: "x"})
+	selfSlug := page.Slug
+	_, code, _ := updatePageViaAPI(t, router, page.Slug, models.UpdatePageRequest{Content: "x", ParentSlug: &selfSlug})
+	if code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 when a page is set as its own parent, got %d", code)
+	}
+}
+
+func TestSubpages_DeletingParentPromotesChildren(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	parent, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Tillfällig Förälder", Content: "x"})
+	child, code := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Kvarlevande Barn", Content: "x", ParentSlug: parent.Slug})
+	if code != http.StatusCreated {
+		t.Fatalf("Expected 201 for child page, got %d", code)
+	}
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("DELETE", "/api/v1/pages/"+parent.Slug, nil)
+	r.Header.Set("X-API-Key", "master-secret")
+	router.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200 deleting parent page, got %d", w.Code)
+	}
+
+	fetchedChild, code := getPageViaAPI(t, router, child.Slug)
+	if code != http.StatusOK {
+		t.Fatalf("Expected child page to survive parent deletion, got %d", code)
+	}
+	if fetchedChild.ParentID != nil {
+		t.Fatalf("Expected orphaned child to have nil ParentID, got %v", fetchedChild.ParentID)
+	}
+}
+
+func TestSubpages_DetachFromParent(t *testing.T) {
+	router, cleanup := setupTestRouter(t)
+	defer cleanup()
+
+	parent, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Bas Förälder", Content: "x"})
+	child, _ := createPageViaAPI(t, router, models.CreatePageRequest{Title: "Löst Barn", Content: "x", ParentSlug: parent.Slug})
+
+	emptySlug := ""
+	updated, code, _ := updatePageViaAPI(t, router, child.Slug, models.UpdatePageRequest{Content: "x", ParentSlug: &emptySlug})
+	if code != http.StatusOK {
+		t.Fatalf("Expected 200 detaching child from parent, got %d", code)
+	}
+	if updated.ParentID != nil {
+		t.Fatalf("Expected ParentID to be nil after detaching, got %v", updated.ParentID)
+	}
+}

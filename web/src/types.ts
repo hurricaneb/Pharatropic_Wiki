@@ -54,11 +54,14 @@ export interface Page {
   content: string;
   is_public: boolean;
   views: number;
+  parent_id?: number | null;
   created_at: string;
   updated_at: string;
   tags?: Tag[];
   revisions?: Revision[];
   attachments?: Attachment[];
+  parent?: Page | null;
+  children?: Page[];
 }
 
 export interface CreatePageInput {
@@ -68,6 +71,7 @@ export interface CreatePageInput {
   comment?: string;
   is_public?: boolean;
   tags?: string[];
+  parent_slug?: string;
 }
 
 export interface UpdatePageInput {
@@ -77,4 +81,5 @@ export interface UpdatePageInput {
   comment?: string;
   is_public?: boolean;
   tags?: string[];
+  parent_slug?: string;
 }
